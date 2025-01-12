@@ -6,6 +6,7 @@
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <SPIFFS.h>
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig* config) {
@@ -29,46 +30,18 @@ WebServer server(80);
 VM *espState = nullptr;
 PwmConfig espPwmConfig;
 
-const char HTML_MAIN[] PROGMEM = R"(
-<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        html,body {height:100%;margin:0;background-color:#f9f9f9;}
-        .box {display:flex;flex-flow:column;padding:10pt;margin:10pt;}
-        .sec {display:flex;width:100%;font-family:Arial, Helvetica, sans-serif;font-size:30pt;padding:7pt;align-items:center;gap:7pt;color:#444;}
-        .ttl {display:flex;width:32pt;height:32pt;font-size:12pt;border:2px solid #444;border-radius:7px;justify-content:center;align-items:center;box-shadow: 2px 2px 2px 2px #eed;}
-        .slider {width:100%;background:#ddd;accent-color:#888;}
-    </style>
-    <script>
-    </script>
-</head>
-<body>
-    <div class="box">
-        <div class="sec">
-            <div class="ttl">PWM</div><span id="valuePwm">127</span>
-        </div>
-        <input type="range" min="0" max="8192" value="4096" class="slider" id="sliderPwm">
-        <div class="sec">
-            <div class="ttl">V</div><span id="valueV">0.00</span> V
-        </div>
-        <div class="sec">
-            <div class="ttl">A</div><span id="valueA">0.00</span> A
-        </div>
-    </div>
-    <script>
-        const slider = document.getElementById("sliderPwm");
-        const output = document.getElementById("valuePwm");
-        slider.addEventListener("input", function() {
-            output.textContent = Math.floor(this.value/32);
-        });
-    </script>
-</body></html>
-)";
-
 void handle_OnConnect()
 {
-    server.send(200, "text/html", HTML_MAIN);
+    if (SPIFFS.exists("/index.html"))
+    {
+        File file = SPIFFS.open("/index.html", "r");
+        server.streamFile(file, "text/html");
+        file.close();
+    }
+    else
+    {
+        server.send(404, "text/plain", "File Not Found");
+    }
 }
 
 void handle_NotFound()
@@ -177,6 +150,11 @@ void esp32Init(struct VM *state)
         Serial.println("Error starting mDNS");
     }
     MDNS.addService("esppower", "tcp", 80);
+
+    if(!SPIFFS.begin(true)) {
+        Serial.println("SPIFFS failed");
+        return;
+    }
 
     server.on("/", handle_OnConnect);
     server.on("/pwmon", handle_PwmOn);
