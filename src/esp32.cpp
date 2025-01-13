@@ -63,6 +63,11 @@ void handle_PwmOff()
     server.send(200, "text/plain", "OK");
 }
 
+void handle_PwmGet()
+{
+    server.send(200, "text/plain", "OK");
+}
+
 void handle_PwmSet()
 {
     int8_t channel = -1;
@@ -160,6 +165,7 @@ void esp32Init(struct VM *state)
     server.on("/pwmon", handle_PwmOn);
     server.on("/pwmset", handle_PwmSet);
     server.on("/pwmoff", handle_PwmOff);
+    server.on("/pwmget", handle_PwmGet);
     server.onNotFound(handle_NotFound);
     server.begin();
 }

@@ -17,18 +17,18 @@ void vmUpdateState(struct VM *vm)
 {
 }
 
-void vmOnPwmStart(struct PwmConfig *config)
+void vmOnPwmStart(struct VM *vm, struct PwmConfig *config)
 {
     config->work = 1;
     pwmStart(config);
 }
 
-void vmOnPwmUpdate(struct PwmConfig *config)
+void vmOnPwmUpdate(struct VM *vm, struct PwmConfig *config)
 {
     pwmSetup(config);
 }
 
-void vmOnPwmEnd(struct PwmConfig *config)
+void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config)
 {
     config->work = 0;
     pwmStop(config);

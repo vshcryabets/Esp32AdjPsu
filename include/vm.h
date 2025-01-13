@@ -21,16 +21,16 @@ struct VM {
     uint16_t innCurrent;
     uint16_t configuredVoltage;
     uint16_t configuredCurrent;
-    uint16_t configuredPwm;
+    struct PwmConfig pwm;
 };
 
 void vmInit(struct VM *vm);
 void vmOnButtons(struct VM *vm, uint8_t buttons);
 void vmUpdateState(struct VM *vm);
 
-void vmOnPwmStart(struct PwmConfig *config);
-void vmOnPwmUpdate(struct PwmConfig *config);
-void vmOnPwmEnd(struct PwmConfig *config);
+void vmOnPwmStart(struct VM *vm, struct PwmConfig *config);
+void vmOnPwmUpdate(struct VM *vm, struct PwmConfig *config);
+void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config);
 
 
 #ifdef __cplusplus
