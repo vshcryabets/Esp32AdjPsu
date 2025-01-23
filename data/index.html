@@ -25,32 +25,56 @@
         </div>
     </div>
     <script>
-        var pwmEnabled = false;
+        class EspRepo {
+            constructor() {}
+            sendPwmValue(channel,duty) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET','./pwmset?channel='+channel+'&duty=' + duty,true);
+                xhr.send();
+            }
+        }
+        class VM {
+            constructor(espRepo) {
+                this.pwmEnabled = false;
+                this.pwmValue = 255;
+                this.espRepo = espRepo;
+            }
+
+            onPwmClick() {
+                this.pwmEnabled = !this.pwmEnabled;
+                const xhr = new XMLHttpRequest();
+                if (this.pwmEnabled)
+                    xhr.open('GET','./pwmon?channel=0&freq=5000&res=8&pin=22&duty=' + this.pwmValue,true);
+                else 
+                    xhr.open('GET','./pwmoff?channel=0',true);
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState===4) {
+                        if (xhr.status>=200 && xhr.status<300) {
+                            //resolve(xhr.responseText);
+                        } else {
+                            reject(new Error(`Request failed with status ${xhr.status}`));
+                        }
+                    }
+                };
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send();
+            }
+
+            onSlider(value) {
+                const newValue = Math.floor(value / 32);
+                if (newValue == this.pwmValue) return;
+                this.pwmValue = newValue;
+                if (this.pwmEnabled) espRepo.sendPwmValue(0, this.pwmValue);
+            }
+
+        }
+
+        const espRepo = new EspRepo();
+        const vm = new VM(espRepo);
         const slider = document.getElementById("sliderPwm");
         const output = document.getElementById("valuePwm");
-        slider.addEventListener("input", function() {
-            output.textContent = Math.floor(this.value/32);
-        });
-        document.getElementById("btnPwm").addEventListener('click', function() {
-            pwmEnabled = !pwmEnabled;
-            alert('PWM ' + pwmEnabled);
-            const xhr = new XMLHttpRequest();
-            if (pwmEnabled)
-                xhr.open('GET','./pwmon?channel=0&freq=5000&res=8&pin=25&duty=255',true);
-            else 
-                xhr.open('GET','./pwmoff?channel=0',true);
-
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState===4) {
-                    if (xhr.status>=200 && xhr.status<300) {
-                        resolve(xhr.responseText);
-                    } else {
-                        reject(new Error(`Request failed with status ${xhr.status}`));
-                    }
-                }
-            };
-            xhr.onerror = () => reject(new Error('Network error'));
-            xhr.send();
-        });
+        slider.addEventListener("input", (event) => { vm.onSlider(event.target.value); output.textContent = vm.pwmValue;});
+        document.getElementById("btnPwm").addEventListener('click', (event) => { vm.onPwmClick(); });
     </script>
 </body></html>
