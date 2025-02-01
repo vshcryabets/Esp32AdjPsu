@@ -32,18 +32,51 @@
                 xhr.open('GET','./pwmset?channel='+channel+'&duty=' + duty,true);
                 xhr.send();
             }
+            getState() {
+                return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET','./pwmget',true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState===4) {
+                        if (xhr.status>=200 && xhr.status<300) {
+                            resolve(xhr.responseText);
+                        } else {
+                            reject(new Error(`Request failed with status ${xhr.status}`));
+                        }
+                    }
+                };
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send();
+            });
+            }
+        }
+        class State{ 
+            constructor(pwmValue, pwmEnabled) {
+                this.pwmValue = pwmValue;
+                this.pwmEnabled = pwmEnabled;
+            }
+            copy(pwmValue = this.pwmValue, pwmEnabled = this.pwmEnabled) {
+                return new State(pwmValue, pwmEnabled);
+            }
         }
         class VM {
-            constructor(espRepo) {
-                this.pwmEnabled = false;
-                this.pwmValue = 255;
+            constructor(espRepo, updateUi) {
+                this.state = new State(255, false);
                 this.espRepo = espRepo;
+                this.updateUi = updateUi;
+                espRepo.getState().then(response => {
+                    const data=JSON.parse(response);
+                    this.state = new State(data.duty, data.work == 1);
+                    this.updateUi(this.state);
+                })
+                .catch(error => { console.error('Request error:', error); })
+                .finally(() => { });
             }
 
             onPwmClick() {
-                this.pwmEnabled = !this.pwmEnabled;
+                this.state = new State(this.state.pwmValue, !this.state.pwmEnabled);
                 const xhr = new XMLHttpRequest();
-                if (this.pwmEnabled)
+                if (this.state.pwmEnabled)
                     xhr.open('GET','./pwmon?channel=0&freq=5000&res=8&pin=22&duty=' + this.pwmValue,true);
                 else 
                     xhr.open('GET','./pwmoff?channel=0',true);
@@ -52,6 +85,7 @@
                     if (xhr.readyState===4) {
                         if (xhr.status>=200 && xhr.status<300) {
                             //resolve(xhr.responseText);
+                            this.updateUi(this.state);
                         } else {
                             reject(new Error(`Request failed with status ${xhr.status}`));
                         }
@@ -62,19 +96,24 @@
             }
 
             onSlider(value) {
-                const newValue = Math.floor(value / 32);
-                if (newValue == this.pwmValue) return;
-                this.pwmValue = newValue;
-                if (this.pwmEnabled) espRepo.sendPwmValue(0, this.pwmValue);
+                const newValue = value;
+                if (newValue == this.state.pwmValue) return;
+                this.state = new State(newValue, this.state.pwmEnabled);
+                if (this.state.pwmEnabled) espRepo.sendPwmValue(0, this.state.pwmValue);
+                this.updateUi(this.state);
             }
+        }
 
+        function updateUi(state) {
+            output.textContent = state.pwmValue;
+            slider.value = state.pwmValue * 32;
         }
 
         const espRepo = new EspRepo();
-        const vm = new VM(espRepo);
+        const vm = new VM(espRepo, updateUi);
         const slider = document.getElementById("sliderPwm");
         const output = document.getElementById("valuePwm");
-        slider.addEventListener("input", (event) => { vm.onSlider(event.target.value); output.textContent = vm.pwmValue;});
+        slider.addEventListener("input", (event) => { vm.onSlider( Math.floor(event.target.value / 32));});
         document.getElementById("btnPwm").addEventListener('click', (event) => { vm.onPwmClick(); });
     </script>
 </body></html>

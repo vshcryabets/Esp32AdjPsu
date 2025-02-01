@@ -31,7 +31,7 @@ void vmUpdateState(struct VM *vm);
 void vmOnPwmStart(struct VM *vm, struct PwmConfig *config);
 void vmOnPwmUpdate(struct VM *vm, struct PwmConfig *config);
 void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config);
-
+void vmOnPwmGet(struct VM *vm, struct PwmConfig *out);
 
 #ifdef __cplusplus
 }
