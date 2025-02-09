@@ -5,3 +5,7 @@ Requirements:
 - CV/CC modes;
 - ability to configure it via web-browser;
 - measure Volts, Ampers, Watts, may be capacity.
+
+## Conceptual diagram
+
+<img src="./img/visual_scheme.png">
