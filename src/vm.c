@@ -2,20 +2,30 @@
 #include "config.h"
 #include "string.h"
 
+#define DMM_READ_INTERVAL 250
+
 void vmInit(struct VM *vm)
 {
+    memset(vm, 0, sizeof(struct VM));
     vm->state = INDICATE;
+    vm->dmmNextReadTime = 0;
     vm->isDirty = 1;
+    dmmInit(vm);
 }
 
 void vmOnButtons(struct VM *vm, uint8_t buttons)
-{
-    
+{    
     vm->isDirty = 1;
 }
 
-void vmUpdateState(struct VM *vm)
+void vmUpdateState(struct VM *vm, uint32_t timestamp)
 {
+    if (vm->dmmNextReadTime < timestamp)
+    {
+        dmmRead(vm, &vm->dmmResult, 0);
+        vm->dmmNextReadTime = timestamp + DMM_READ_INTERVAL;
+        vm->isDirty = 1;
+    }
 }
 
 void vmOnPwmStart(struct VM *vm, struct PwmConfig *config)

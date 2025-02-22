@@ -158,7 +158,6 @@ void handle_PwmOn()
 
 void esp32Init(struct VM *state)
 {
-    Serial.begin(9600);
     espState = state;
     WiFiManager wm;
     bool res = wm.autoConnect("ESPPower", "E$PP0w4r"); // password protected ap

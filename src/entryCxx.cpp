@@ -10,6 +10,7 @@ struct VM viewModel;
 
 void setup()
 {
+  Serial.begin(9600);
   vmInit(&viewModel);
   uiInit(&viewModel);
 #ifdef STM8
@@ -25,6 +26,6 @@ void loop()
 #ifdef ESP32
   esp32Loop(&viewModel);
 #endif
-  vmUpdateState(&viewModel);
+  vmUpdateState(&viewModel, millis());
 }
 #endif
