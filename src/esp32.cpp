@@ -8,6 +8,8 @@
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include "Wire.h"
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig *config)
@@ -30,44 +32,25 @@ extern "C" void pwmStop(struct PwmConfig *config)
 }
 #pragma endregion
 
-WebServer server(80);
+AsyncWebServer server(80);
 VM *espState = nullptr;
 
-void handle_OnConnect()
+void handleNotFound(AsyncWebServerRequest *request)
 {
-    if (SPIFFS.exists("/index.html"))
-    {
-        File file = SPIFFS.open("/index.html", "r");
-        server.streamFile(file, "text/html");
-        file.close();
-    }
-    else
-    {
-        server.send(404, "text/plain", "File Not Found");
-    }
+    request->send(404, "text/plain", "Not found");
 }
 
-void handle_NotFound()
-{
-    server.send(404, "text/plain", "Not found");
-}
-
-void handle_PwmOff()
-{
-    for (uint8_t i = 0; i < server.args(); i++)
-    {
-        if (server.argName(i).equals("channel"))
-        {
-            PwmConfig espPwmConfig;
-            espPwmConfig.channel = atoi(server.arg(i).c_str());
-            vmOnPwmEnd(espState, &espPwmConfig);
-            break;
-        }
+void handlePwmOff(AsyncWebServerRequest *request) {
+    if (request->hasParam("channel")) {
+        const AsyncWebParameter* p = request->getParam("channel");
+        PwmConfig espPwmConfig;
+        espPwmConfig.channel = atoi(p->value().c_str());
+        vmOnPwmEnd(espState, &espPwmConfig);
     }
-    server.send(200, "text/plain", "OK");
+    request->send(200, "text/plain", "OK");
 }
 
-void handle_PwmGet()
+void handlePwmGet(AsyncWebServerRequest *request)
 {
     PwmConfig config;
     vmOnPwmGet(espState, &config);
@@ -83,19 +66,19 @@ void handle_PwmGet()
     response += ",\"freq\":";
     response += config.freq;
     response += "}";
-    server.send(200, "application/json", response.c_str());
+    request->send(200, "application/json", response.c_str());
 }
 
-void handle_PwmSet()
+void handlePwmSet(AsyncWebServerRequest *request)
 {
     int8_t channel = -1;
     int32_t duty = -1;
-    for (uint8_t i = 0; i < server.args(); i++)
+    for (uint8_t i = 0; i < request->args(); i++)
     {
-        if (server.argName(i).equals("channel"))
-            channel = atoi(server.arg(i).c_str());
-        else if (server.argName(i).equals("duty"))
-            duty = atoi(server.arg(i).c_str());
+        if (request->argName(i).equals("channel"))
+            channel = atoi(request->arg(i).c_str());
+        else if (request->argName(i).equals("duty"))
+            duty = atoi(request->arg(i).c_str());
     }
     if (channel > -1 && duty > -1)
     {
@@ -103,33 +86,33 @@ void handle_PwmSet()
         espPwmConfig.channel = channel;
         espPwmConfig.duty = duty;
         vmOnPwmUpdate(espState, &espPwmConfig);
-        server.send(200, "text/plain", "OK");
+        request->send(200, "text/plain", "OK");
     }
     else
     {
-        server.send(400, "text/plain", "Missed argument: channel,duty");
+        request->send(400, "text/plain", "Missed argument: channel,duty");
     }
 }
 
-void handle_PwmOn()
+void handlePwmOn(AsyncWebServerRequest *request)
 {
     int8_t channel = -1;
     int32_t freq = -1;
     int8_t resolution = -1;
     int8_t pin = -1;
     int16_t duty = 0;
-    for (uint8_t i = 0; i < server.args(); i++)
+    for (uint8_t i = 0; i < request->args(); i++)
     {
-        if (server.argName(i).equals("channel"))
-            channel = atoi(server.arg(i).c_str());
-        else if (server.argName(i).equals("freq"))
-            freq = atoi(server.arg(i).c_str());
-        else if (server.argName(i).equals("res"))
-            resolution = atoi(server.arg(i).c_str());
-        else if (server.argName(i).equals("pin"))
-            pin = atoi(server.arg(i).c_str());
-        else if (server.argName(i).equals("duty"))
-            duty = atoi(server.arg(i).c_str());
+        if (request->argName(i).equals("channel"))
+            channel = atoi(request->arg(i).c_str());
+        else if (request->argName(i).equals("freq"))
+            freq = atoi(request->arg(i).c_str());
+        else if (request->argName(i).equals("res"))
+            resolution = atoi(request->arg(i).c_str());
+        else if (request->argName(i).equals("pin"))
+            pin = atoi(request->arg(i).c_str());
+        else if (request->argName(i).equals("duty"))
+            duty = atoi(request->arg(i).c_str());
     }
     if (channel > -1 && freq > -1 && resolution > -1 && pin > -1)
     {
@@ -149,11 +132,11 @@ void handle_PwmOn()
         espPwmConfig.duty = duty;
 
         vmOnPwmStart(espState, &espPwmConfig);
-        server.send(200, "text/plain", "OK");
+        request->send(200, "text/plain", "OK");
     }
     else
     {
-        server.send(400, "text/plain", "Missed argument: channel,freq,res,pin");
+        request->send(400, "text/plain", "Missed argument: channel,freq,res,pin");
     }
 }
 
@@ -187,18 +170,21 @@ void esp32Init(struct VM *state)
         return;
     }
 
-    server.on("/", handle_OnConnect);
-    server.on("/pwmon", handle_PwmOn);
-    server.on("/pwmset", handle_PwmSet);
-    server.on("/pwmoff", handle_PwmOff);
+    // Обробка запиту до "/"
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(SPIFFS, "/index.html", "text/html");
+    });
+    server.on("/pwmon", HTTP_GET, handlePwmOn);
+    server.on("/pwmset", HTTP_GET, handlePwmSet);
+    server.on("/pwmoff", HTTP_GET, handlePwmOff);
     // curl "http://esppower.local/pwmget"
-    server.on("/pwmget", handle_PwmGet);
-    server.onNotFound(handle_NotFound);
+    server.on("/pwmget", HTTP_GET, handlePwmGet);
+    server.onNotFound(handleNotFound);
     server.begin();
 }
 
 void esp32Loop(struct VM *state)
 {
-    server.handleClient();
+    // server.handleClient();
 }
 #endif
