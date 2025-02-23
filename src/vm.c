@@ -10,7 +10,12 @@ void vmInit(struct VM *vm)
     vm->state = INDICATE;
     vm->dmmNextReadTime = 0;
     vm->isDirty = 1;
+}
+
+void vmOnHwReady(struct VM *vm)
+{
     dmmInit(vm);
+    vm->isDirty = 1;
 }
 
 void vmOnButtons(struct VM *vm, uint8_t buttons)

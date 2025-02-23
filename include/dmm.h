@@ -16,6 +16,11 @@ extern "C" {
     void dmmRead(struct VM *vm, struct DmmResult *result, uint8_t channel);
 #ifdef __cplusplus
 }
+
+class Dmm {
+    public:
+        virtual void read(struct DmmResult *result, uint8_t channel) = 0;
+};
 #endif
 
 #endif // DMM_H

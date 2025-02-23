@@ -7,6 +7,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
+#include "Wire.h"
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig *config)
@@ -160,6 +161,8 @@ void esp32Init(struct VM *state)
 {
     espState = state;
     WiFiManager wm;
+    Wire.begin();
+    Wire.setClock(50000);
     bool res = wm.autoConnect("ESPPower", "E$PP0w4r"); // password protected ap
     if (!res)
     {

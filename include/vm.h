@@ -27,6 +27,7 @@ struct VM {
 };
 
 void vmInit(struct VM *vm);
+void vmOnHwReady(struct VM *vm);
 void vmOnButtons(struct VM *vm, uint8_t buttons);
 void vmUpdateState(struct VM *vm, uint32_t timestamp);
 

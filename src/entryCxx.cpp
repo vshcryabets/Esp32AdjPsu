@@ -18,6 +18,7 @@ void setup()
 #elif defined(ESP32)
   esp32Init(&viewModel);
 #endif
+  vmOnHwReady(&viewModel);
 }
 
 
