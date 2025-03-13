@@ -1,6 +1,7 @@
-#include "esp32.h"
 #include <Arduino.h>
 #include "vm.h"
+#include "esp32.h"
+
 
 #ifdef ESP32
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
@@ -33,7 +34,9 @@ extern "C" void pwmStop(struct PwmConfig *config)
 #pragma endregion
 
 AsyncWebServer server(80);
-VM *espState = nullptr;
+AsyncWebSocket ws("/ws"); 
+VM *vmState = nullptr;
+EspState mcuState;
 
 void handleNotFound(AsyncWebServerRequest *request)
 {
@@ -45,7 +48,7 @@ void handlePwmOff(AsyncWebServerRequest *request) {
         const AsyncWebParameter* p = request->getParam("channel");
         PwmConfig espPwmConfig;
         espPwmConfig.channel = atoi(p->value().c_str());
-        vmOnPwmEnd(espState, &espPwmConfig);
+        vmOnPwmEnd(vmState, &espPwmConfig);
     }
     request->send(200, "text/plain", "OK");
 }
@@ -53,7 +56,7 @@ void handlePwmOff(AsyncWebServerRequest *request) {
 void handlePwmGet(AsyncWebServerRequest *request)
 {
     PwmConfig config;
-    vmOnPwmGet(espState, &config);
+    vmOnPwmGet(vmState, &config);
     String response;
     response += "{\"work\":";
     response += config.work;
@@ -85,7 +88,7 @@ void handlePwmSet(AsyncWebServerRequest *request)
         PwmConfig espPwmConfig;
         espPwmConfig.channel = channel;
         espPwmConfig.duty = duty;
-        vmOnPwmUpdate(espState, &espPwmConfig);
+        vmOnPwmUpdate(vmState, &espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -131,7 +134,7 @@ void handlePwmOn(AsyncWebServerRequest *request)
         espPwmConfig.pin = pin;
         espPwmConfig.duty = duty;
 
-        vmOnPwmStart(espState, &espPwmConfig);
+        vmOnPwmStart(vmState, &espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -140,9 +143,33 @@ void handlePwmOn(AsyncWebServerRequest *request)
     }
 }
 
+void onWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->opcode == WS_TEXT) {
+        data[len] = 0;  // Null-terminate message
+        Serial.printf("Received: %s\n", (char*)data);
+        //ws.textAll("Echo: " + String((char*)data));  // Echo message back to all clients
+    }
+}
+
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
+                      AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    switch (type) {
+        case WS_EVT_CONNECT:
+            Serial.printf("Client #%u connected\n", client->id());
+            break;
+        case WS_EVT_DISCONNECT:
+            Serial.printf("Client #%u disconnected\n", client->id());
+            break;
+        case WS_EVT_DATA:
+            onWebSocketMessage(arg, data, len);
+            break;
+    }
+}
+
 void esp32Init(struct VM *state)
 {
-    espState = state;
+    vmState = state;
     WiFiManager wm;
     Wire.begin();
     Wire.setClock(50000);
@@ -180,11 +207,27 @@ void esp32Init(struct VM *state)
     // curl "http://esppower.local/pwmget"
     server.on("/pwmget", HTTP_GET, handlePwmGet);
     server.onNotFound(handleNotFound);
+    ws.onEvent(onWebSocketEvent);
+    server.addHandler(&ws);
     server.begin();
 }
 
 void esp32Loop(struct VM *state)
 {
-    // server.handleClient();
+    if (state->isDirty) {
+        if (state->dmmResult.timestamp != mcuState.dmmSendTime) {
+            ws.cleanupClients();
+            mcuState.dmmSendTime = state->dmmResult.timestamp;
+            String response;
+            response += "{\"v\":";
+            response += state->dmmResult.voltage;
+            response += ",\"c\":";
+            response += state->dmmResult.current;
+            response += ",\"ts\":";
+            response += state->dmmResult.timestamp;
+            response += "}";
+            ws.textAll(response);
+        }
+    }
 }
 #endif

@@ -26,12 +26,21 @@
     </div>
     <script>
         class EspRepo {
-            constructor() {}
+            constructor() {
+                this.wsDataCb = null;
+                this.ws = new WebSocket(`ws://${window.location.host}/ws`);
+                this.ws.onopen = () => {console.log("WebSocket connected");};
+                this.ws.onmessage = (event) => {
+                    if (this.wsDataCb != null) { this.wsDataCb(JSON.parse(event.data)); }
+                };
+                this.ws.onclose = () => console.log("WebSocket disconnected");
+            }
             sendPwmValue(channel,duty) {
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET','./pwmset?channel='+channel+'&duty=' + duty,true);
                 xhr.send();
             }
+            setWsCallback(callback) { this.wsDataCb = callback; }
             getState() {
                 return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
@@ -51,37 +60,43 @@
             }
         }
         class State{ 
-            constructor(pwmValue, pwmEnabled) {
+            constructor(pwmValue, pwmEnabled, volts, current) {
                 this.pwmValue = pwmValue;
                 this.pwmEnabled = pwmEnabled;
+                this.volts = volts;
+                this.current = current;
             }
-            copy(pwmValue = this.pwmValue, pwmEnabled = this.pwmEnabled) {
-                return new State(pwmValue, pwmEnabled);
-            }
+            copyPwmValue(value) { return new State(value, this.pwmEnabled, this.volts, this.current); }
+            copyPwmEnabled(value) { return new State(this.pwmValue, value, this.volts, this.current); }
+            copyVoltsCurrent(volts, current) { return new State(this.pwmValue, this.pwmEnabled, volts, current); }
         }
         class VM {
             constructor(espRepo, updateUi) {
                 this.state = new State(255, false);
                 this.espRepo = espRepo;
                 this.updateUi = updateUi;
-                espRepo.getState().then(response => {
+                this.espRepo.getState().then(response => {
                     const data=JSON.parse(response);
                     this.state = new State(data.duty, data.work == 1);
                     this.updateUi(this.state);
                 })
                 .catch(error => { console.error('Request error:', error); })
                 .finally(() => { });
+                this.espRepo.setWsCallback(data => {
+                    this.state = this.state.copyVoltsCurrent(data.v, data.c);
+                    this.updateUi(this.state);
+                })
             }
 
             onPwmClick() {
-                this.state = new State(this.state.pwmValue, !this.state.pwmEnabled);
+                this.state = this.state.copyPwmEnabled(!this.state.pwmEnabled);
                 const xhr = new XMLHttpRequest();
                 if (this.state.pwmEnabled)
                     xhr.open('GET','./pwmon?channel=0&freq=5000&res=8&pin=22&duty=' + this.pwmValue,true);
                 else 
                     xhr.open('GET','./pwmoff?channel=0',true);
 
-                xhr.onreadystatechange = function () {
+                xhr.onreadystatechange = () => {
                     if (xhr.readyState===4) {
                         if (xhr.status>=200 && xhr.status<300) {
                             //resolve(xhr.responseText);
@@ -98,21 +113,26 @@
             onSlider(value) {
                 const newValue = value;
                 if (newValue == this.state.pwmValue) return;
-                this.state = new State(newValue, this.state.pwmEnabled);
+                this.state = this.state.copyPwmValue(newValue);
                 if (this.state.pwmEnabled) espRepo.sendPwmValue(0, this.state.pwmValue);
                 this.updateUi(this.state);
             }
         }
 
+        const slider = document.getElementById("sliderPwm");
+        const output = document.getElementById("valuePwm");
+        const uiValueV = document.getElementById("valueV");
+        const uiValueA = document.getElementById("valueA");
+
         function updateUi(state) {
             output.textContent = state.pwmValue;
             slider.value = state.pwmValue * 32;
+            uiValueV.textContent = state.volts;
+            uiValueA.textContent = state.current;
         }
 
         const espRepo = new EspRepo();
         const vm = new VM(espRepo, updateUi);
-        const slider = document.getElementById("sliderPwm");
-        const output = document.getElementById("valuePwm");
         slider.addEventListener("input", (event) => { vm.onSlider( Math.floor(event.target.value / 32));});
         document.getElementById("btnPwm").addEventListener('click', (event) => { vm.onPwmClick(); });
     </script>
