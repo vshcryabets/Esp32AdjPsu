@@ -11,6 +11,7 @@
 #include "Wire.h"
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include "esp32_neural.h"
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig *config)
@@ -210,10 +211,22 @@ void esp32Init(struct VM *state)
     ws.onEvent(onWebSocketEvent);
     server.addHandler(&ws);
     server.begin();
+    load_weights(&mcuState.nn);
 }
 
 void esp32Loop(struct VM *state)
 {
+    float input = state->pwm.duty / 255.f;
+    float target = input * 10.0f;
+
+    mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
+    mcuState.nn.debugOutput(input, target);
+  
+    static int count = 0;
+    if (++count % 100 == 0) {
+      save_weights(&mcuState.nn);
+    }
+
     if (state->isDirty) {
         if (state->dmmResult.timestamp != mcuState.dmmSendTime) {
             ws.cleanupClients();
