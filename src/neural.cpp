@@ -1,17 +1,17 @@
-#include "nerual.h"
+#include "neural.h"
 #include "math.h"
 #include <Arduino.h>
 
 // Sigmoid function
-float NeuralNetwork::sigmoid(float x) {
+float NeuralNetworkMethods::sigmoid(float x) {
     return 1.0f / (1.0f + exp(-x));
 }
 
-float NeuralNetwork::sigmoid_derivative(float y) {
+float NeuralNetworkMethods::sigmoid_derivative(float y) {
     return y * (1.0f - y);
 }
 
-void NeuralNetwork::train_step(float input, float target, float learning_rate) {
+void NeuralNetworkMethods::train_step(float input, float target, float learning_rate) {
     float h[2];
     for (int i = 0; i < 2; i++) {
         h[i] = sigmoid(input * w1[i] + b1[i]);
@@ -34,7 +34,7 @@ void NeuralNetwork::train_step(float input, float target, float learning_rate) {
     b2 += learning_rate * d_output;
 }
 
-float NeuralNetwork::predict(float input) {
+float NeuralNetworkMethods::predict(float input) {
     float h[2];
     for (int i = 0; i < 2; i++) {
         h[i] = sigmoid(input * w1[i] + b1[i]);
@@ -42,7 +42,7 @@ float NeuralNetwork::predict(float input) {
     return sigmoid(h[0] * w2[0] + h[1] * w2[1] + b2);
 }
 
-void NeuralNetwork::debugOutput(float input, float target) {
+void NeuralNetworkMethods::debugOutput(float input, float target) {
     // Debug output
     float h[2] = {
         sigmoid(input * w1[0] + b1[0]),
@@ -51,4 +51,11 @@ void NeuralNetwork::debugOutput(float input, float target) {
     float output = sigmoid(h[0] * w2[0] + h[1] * w2[1] + b2);
 
     Serial.printf("In: %.2f | Target: %.2f | Out: %.2f\n", input, target, output);     
+}
+
+void NeuralNetworkMethods::doCalibrateStep() {
+    // step 1
+    // detect minimal voltage
+    // step 2
+    // detect maximal voltage
 }

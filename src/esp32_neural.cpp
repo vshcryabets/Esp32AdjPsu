@@ -1,15 +1,19 @@
-#include "esp32_neural.h"
+#include "neural.h"
 #include <Arduino.h>
 #include <SPIFFS.h>
 
-void save_weights(NeuralNetwork *nn)
+#ifdef ESP32
+
+extern "C"
+void neuralSaveModel(NeuralNetwork *nn)
 {
     File file = SPIFFS.open("/weights.txt", FILE_WRITE);
     if (!file) {
         Serial.println("Failed to open file for writing");
         return;
     }
-
+    file.printf("%.6f\n", nn->min);
+    file.printf("%.6f\n", nn->max);
     for (int i = 0; i < 2; i++) {
         file.printf("1,0,%d=%.6f\n", i, nn->w1[i]);
         file.printf("1,1,%d=%.6f\n", i, nn->b1[i]);
@@ -19,8 +23,24 @@ void save_weights(NeuralNetwork *nn)
     file.close();
 }
 
-void load_weights(NeuralNetwork *nn)
+extern "C"
+void neuralLoadModel(NeuralNetwork *nn)
 {
+    // layer 1
+    nn->w1[0] = 0.1f;
+    nn->w1[1] = -0.2f;
+    nn->b1[0] = 0.0f;
+    nn->b1[1] = 0.0f;
+    // layer 2
+    nn->w2[0] = 0.3f;
+    nn->w2[1] = -0.4f;
+    nn->b2 = 0.f;
+    // calibration
+    nn->min = 0.f;
+    nn->max = 1.f;
+    // calibration step
+    nn->calibrateStep = 0;
+
     File file = SPIFFS.open("/weights.txt", FILE_READ);
     if (!file) {
         Serial.println("Failed to open file for reading");
@@ -46,3 +66,4 @@ void load_weights(NeuralNetwork *nn)
     }
     file.close();
 }
+#endif

@@ -10,6 +10,7 @@ void vmInit(struct VM *vm)
     vm->state = INDICATE;
     vm->dmmNextReadTime = 0;
     vm->isDirty = 1;
+    neuralLoadModel(&vm->neural);
 }
 
 void vmOnHwReady(struct VM *vm)
@@ -58,4 +59,10 @@ void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config)
 void vmOnPwmGet(struct VM *vm, struct PwmConfig *out) 
 {
     memcpy(out, &vm->pwm, sizeof(struct PwmConfig));
+}
+
+void vmOnCalibration(struct VM *vm)
+{
+    vm->state = CALIBRATE;
+    vm->isDirty = 1;   
 }

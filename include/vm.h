@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "pwm.h"
 #include "dmm.h"
+#include "neural.h"
 
 #ifdef __cplusplus
 extern "C" { 
@@ -12,6 +13,7 @@ extern "C" {
 enum VMState {
     INDICATE = 1,
     CONFIGURE_V,
+    CALIBRATE,
     LAST
 };
 
@@ -24,13 +26,14 @@ struct VM {
     struct DmmResult dmmResult;
     struct PwmConfig pwm;
     void* dmmData;
+    struct NeuralNetwork neural;
 };
 
 void vmInit(struct VM *vm);
 void vmOnHwReady(struct VM *vm);
 void vmOnButtons(struct VM *vm, uint8_t buttons);
 void vmUpdateState(struct VM *vm, uint32_t timestamp);
-
+void vmOnCalibration(struct VM *vm);
 void vmOnPwmStart(struct VM *vm, struct PwmConfig *config);
 void vmOnPwmUpdate(struct VM *vm, struct PwmConfig *config);
 void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config);

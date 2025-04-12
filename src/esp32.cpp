@@ -11,7 +11,6 @@
 #include "Wire.h"
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include "esp32_neural.h"
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig *config)
@@ -96,6 +95,12 @@ void handlePwmSet(AsyncWebServerRequest *request)
     {
         request->send(400, "text/plain", "Missed argument: channel,duty");
     }
+}
+
+void handleCalibration(AsyncWebServerRequest *request)
+{
+    vmOnCalibration(vmState);
+    request->send(200, "text/plain", "OK");
 }
 
 void handlePwmOn(AsyncWebServerRequest *request)
@@ -197,35 +202,33 @@ void esp32Init(struct VM *state)
         Serial.println("SPIFFS failed");
         return;
     }
-
-    // Обробка запиту до "/"
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(SPIFFS, "/index.html", "text/html");
     });
     server.on("/pwmon", HTTP_GET, handlePwmOn);
     server.on("/pwmset", HTTP_GET, handlePwmSet);
     server.on("/pwmoff", HTTP_GET, handlePwmOff);
+    server.on("/calibration", HTTP_GET, handleCalibration);
     // curl "http://esppower.local/pwmget"
     server.on("/pwmget", HTTP_GET, handlePwmGet);
     server.onNotFound(handleNotFound);
     ws.onEvent(onWebSocketEvent);
     server.addHandler(&ws);
     server.begin();
-    load_weights(&mcuState.nn);
 }
 
 void esp32Loop(struct VM *state)
 {
-    float input = state->pwm.duty / 255.f;
-    float target = input * 10.0f;
+    // float input = state->pwm.duty / 255.f;
+    // float target = input * 10.0f;
 
-    mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
-    mcuState.nn.debugOutput(input, target);
+    // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
+    // mcuState.nn.debugOutput(input, target);
   
-    static int count = 0;
-    if (++count % 100 == 0) {
-      save_weights(&mcuState.nn);
-    }
+    // static int count = 0;
+    // if (++count % 100 == 0) {
+    //   save_weights(&mcuState.nn);
+    // }
 
     if (state->isDirty) {
         if (state->dmmResult.timestamp != mcuState.dmmSendTime) {

@@ -1,13 +1,11 @@
 #ifndef ESP32_H
 #define ESP32_H
 #include <stdint.h>
-#include "nerual.h"
 
 #ifdef ESP32
     #ifdef __cplusplus
     struct EspState {
         uint32_t dmmSendTime;
-        NeuralNetwork nn;
     };
     extern "C" { 
     #endif
