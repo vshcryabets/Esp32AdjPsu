@@ -9,3 +9,7 @@ Requirements:
 ## Conceptual diagram
 
 <img src="./img/visual_scheme.png">
+
+## Concept 2 - current inject
+
+<img src="./img/visual_scheme_concept2.png">
