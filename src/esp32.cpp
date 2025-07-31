@@ -241,6 +241,8 @@ void esp32Loop(struct VM *state)
             response += state->dmmResult.current;
             response += ",\"ts\":";
             response += state->dmmResult.timestamp;
+            response += ",\"pwm\":";
+            response += state->pwm.duty;
             response += "}";
             ws.textAll(response);
         }
