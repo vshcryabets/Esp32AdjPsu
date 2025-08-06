@@ -1,9 +1,6 @@
 #include <Arduino.h>
 #include "vm.h"
 #include "esp32.h"
-
-
-#ifdef ESP32
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <WebServer.h>
 #include <ESPmDNS.h>
@@ -11,6 +8,12 @@
 #include "Wire.h"
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include "DmmIna226.h"
+
+VM *viewModel;
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+EspState mcuState;
 
 #pragma region PWM
 extern "C" void pwmStart(struct PwmConfig *config)
@@ -33,22 +36,19 @@ extern "C" void pwmStop(struct PwmConfig *config)
 }
 #pragma endregion
 
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws"); 
-VM *vmState = nullptr;
-EspState mcuState;
-
 void handleNotFound(AsyncWebServerRequest *request)
 {
     request->send(404, "text/plain", "Not found");
 }
 
-void handlePwmOff(AsyncWebServerRequest *request) {
-    if (request->hasParam("channel")) {
-        const AsyncWebParameter* p = request->getParam("channel");
+void handlePwmOff(AsyncWebServerRequest *request)
+{
+    if (request->hasParam("channel"))
+    {
+        const AsyncWebParameter *p = request->getParam("channel");
         PwmConfig espPwmConfig;
         espPwmConfig.channel = atoi(p->value().c_str());
-        vmOnPwmEnd(vmState, &espPwmConfig);
+        viewModel->vmOnPwmEnd(&espPwmConfig);
     }
     request->send(200, "text/plain", "OK");
 }
@@ -56,7 +56,7 @@ void handlePwmOff(AsyncWebServerRequest *request) {
 void handlePwmGet(AsyncWebServerRequest *request)
 {
     PwmConfig config;
-    vmOnPwmGet(vmState, &config);
+    viewModel->vmOnPwmGet(&config);
     String response;
     response += "{\"work\":";
     response += config.work;
@@ -88,7 +88,7 @@ void handlePwmSet(AsyncWebServerRequest *request)
         PwmConfig espPwmConfig;
         espPwmConfig.channel = channel;
         espPwmConfig.duty = duty;
-        vmOnPwmUpdate(vmState, &espPwmConfig);
+        viewModel->vmOnPwmUpdate(&espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -99,7 +99,7 @@ void handlePwmSet(AsyncWebServerRequest *request)
 
 void handleCalibration(AsyncWebServerRequest *request)
 {
-    vmOnCalibration(vmState);
+    viewModel->vmOnCalibration();
     request->send(200, "text/plain", "OK");
 }
 
@@ -140,7 +140,7 @@ void handlePwmOn(AsyncWebServerRequest *request)
         espPwmConfig.pin = pin;
         espPwmConfig.duty = duty;
 
-        vmOnPwmStart(vmState, &espPwmConfig);
+        viewModel->vmOnPwmStart(&espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -149,101 +149,129 @@ void handlePwmOn(AsyncWebServerRequest *request)
     }
 }
 
-void onWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-    AwsFrameInfo *info = (AwsFrameInfo*)arg;
-    if (info->final && info->opcode == WS_TEXT) {
-        data[len] = 0;  // Null-terminate message
-        Serial.printf("Received: %s\n", (char*)data);
-        //ws.textAll("Echo: " + String((char*)data));  // Echo message back to all clients
-    }
-}
-
-void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
-                      AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    switch (type) {
-        case WS_EVT_CONNECT:
-            Serial.printf("Client #%u connected\n", client->id());
-            break;
-        case WS_EVT_DISCONNECT:
-            Serial.printf("Client #%u disconnected\n", client->id());
-            break;
-        case WS_EVT_DATA:
-            onWebSocketMessage(arg, data, len);
-            break;
-    }
-}
-
-void esp32Init(struct VM *state)
+void onWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
-    vmState = state;
-    WiFiManager wm;
-    Wire.begin();
-    Wire.setClock(50000);
-    bool res = wm.autoConnect("ESPPower", "E$PP0w4r"); // password protected ap
-    if (!res)
+    AwsFrameInfo *info = (AwsFrameInfo *)arg;
+    if (info->final && info->opcode == WS_TEXT)
     {
-        Serial.println("Failed to connect");
-        // ESP.restart();
+        data[len] = 0; // Null-terminate message
+        Serial.printf("Received: %s\n", (char *)data);
+        // ws.textAll("Echo: " + String((char*)data));  // Echo message back to all clients
     }
-    else
-    {
-        // if you get here you have connected to the WiFi
-        Serial.println("connected...yeey :)");
-    }
-
-    if (!MDNS.begin("ESPPower"))
-    {
-        Serial.println("Error starting mDNS");
-    }
-    MDNS.addService("esppower", "tcp", 80);
-
-    if (!SPIFFS.begin(true))
-    {
-        Serial.println("SPIFFS failed");
-        return;
-    }
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/index.html", "text/html");
-    });
-    server.on("/pwmon", HTTP_GET, handlePwmOn);
-    server.on("/pwmset", HTTP_GET, handlePwmSet);
-    server.on("/pwmoff", HTTP_GET, handlePwmOff);
-    server.on("/calibration", HTTP_GET, handleCalibration);
-    // curl "http://esppower.local/pwmget"
-    server.on("/pwmget", HTTP_GET, handlePwmGet);
-    server.onNotFound(handleNotFound);
-    ws.onEvent(onWebSocketEvent);
-    server.addHandler(&ws);
-    server.begin();
 }
 
-void esp32Loop(struct VM *state)
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
+                      AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
-    // float input = state->pwm.duty / 255.f;
-    // float target = input * 10.0f;
-
-    // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
-    // mcuState.nn.debugOutput(input, target);
-  
-    // static int count = 0;
-    // if (++count % 100 == 0) {
-    //   save_weights(&mcuState.nn);
-    // }
-
-    if (state->isDirty) {
-        if (state->dmmResult.timestamp != mcuState.dmmSendTime) {
-            ws.cleanupClients();
-            mcuState.dmmSendTime = state->dmmResult.timestamp;
-            String response;
-            response += "{\"v\":";
-            response += state->dmmResult.voltage;
-            response += ",\"c\":";
-            response += state->dmmResult.current;
-            response += ",\"ts\":";
-            response += state->dmmResult.timestamp;
-            response += "}";
-            ws.textAll(response);
-        }
+    switch (type)
+    {
+    case WS_EVT_CONNECT:
+        Serial.printf("Client #%u connected\n", client->id());
+        break;
+    case WS_EVT_DISCONNECT:
+        Serial.printf("Client #%u disconnected\n", client->id());
+        break;
+    case WS_EVT_DATA:
+        onWebSocketMessage(arg, data, len);
+        break;
     }
 }
-#endif
+
+#define LED_BUILTIN 8
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(115200);  // Start the Serial communication to send messages to the computer
+  Serial.println("Hello, ESP32!");  // Print a message to the Serial Monitor
+  delay(1000);  // Wait for a second to ensure the Serial Monitor is ready
+  Serial.println("Setup complete, starting loop...");  // Indicate setup is complete
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  digitalWrite(LED_BUILTIN, LOW);  // turn the LED on (LOW is the voltage level)
+  delay(100);                      // wait for a second
+  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off by making the voltage HIGH
+  delay(900);
+  Serial.println("LED toggled");  // Print a message to the Serial Monitor
+}
+
+// void setup()
+// {
+//     Serial.begin(9600);
+//     viewModel = new VM(new DmmIna226(0x40)); // Initialize VM with DmmIna226 instance
+
+//     WiFiManager wm;
+//     Wire.begin();
+//     Wire.setClock(50000);
+//     bool res = wm.autoConnect("ESPPower", "E$PP0w4r"); // password protected ap
+//     if (!res)
+//     {
+//         Serial.println("Failed to connect");
+//         // ESP.restart();
+//     }
+//     else
+//     {
+//         // if you get here you have connected to the WiFi
+//         Serial.println("connected...yeey :)");
+//     }
+
+//     if (!MDNS.begin("ESPPower"))
+//     {
+//         Serial.println("Error starting mDNS");
+//     }
+//     MDNS.addService("esppower", "tcp", 80);
+
+//     if (!SPIFFS.begin(true))
+//     {
+//         Serial.println("SPIFFS failed");
+//         return;
+//     }
+//     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+//               { request->send(SPIFFS, "/index.html", "text/html"); });
+//     server.on("/pwmon", HTTP_GET, handlePwmOn);
+//     server.on("/pwmset", HTTP_GET, handlePwmSet);
+//     server.on("/pwmoff", HTTP_GET, handlePwmOff);
+//     server.on("/calibration", HTTP_GET, handleCalibration);
+//     // curl "http://esppower.local/pwmget"
+//     server.on("/pwmget", HTTP_GET, handlePwmGet);
+//     server.onNotFound(handleNotFound);
+//     ws.onEvent(onWebSocketEvent);
+//     server.addHandler(&ws);
+//     server.begin();
+
+//     viewModel->vmOnHwReady();
+// }
+
+// void loop()
+// {
+//     // float input = state->pwm.duty / 255.f;
+//     // float target = input * 10.0f;
+
+//     // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
+//     // mcuState.nn.debugOutput(input, target);
+
+//     // static int count = 0;
+//     // if (++count % 100 == 0) {
+//     //   save_weights(&mcuState.nn);
+//     // }
+
+//     if (viewModel->isDirty)
+//     {
+//         if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
+//         {
+//             const DmmResult &result = viewModel->dmmResult;
+//             ws.cleanupClients();
+//             mcuState.dmmSendTime = result.timestamp;
+//             String response;
+//             response += "{\"v\":";
+//             response += result.voltage;
+//             response += ",\"c\":";
+//             response += result.current;
+//             response += ",\"ts\":";
+//             response += result.timestamp;
+//             response += "}";
+//             ws.textAll(response);
+//         }
+//     }
+// }
