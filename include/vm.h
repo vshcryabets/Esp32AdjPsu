@@ -1,14 +1,9 @@
-#ifndef VIEWMODEL_H
-#define VIEWMODEL_H
+#pragma once
 
 #include <stdint.h>
 #include "pwm.h"
 #include "dmm.h"
 #include "neural.h"
-
-#ifdef __cplusplus
-extern "C" { 
-#endif
 
 enum VMState {
     INDICATE = 1,
@@ -17,7 +12,10 @@ enum VMState {
     LAST
 };
 
-struct VM {
+class VM {
+private:
+    Dmm *dmmSource;    
+public:
     enum VMState state;
     uint8_t isDirty;
     uint16_t configuredVoltage;
@@ -25,22 +23,16 @@ struct VM {
     uint32_t dmmNextReadTime;
     struct DmmResult dmmResult;
     struct PwmConfig pwm;
-    void* dmmData;
     struct NeuralNetwork neural;
+public:
+    VM(Dmm *dmmSource);
+
+    void vmOnHwReady();
+    void vmOnButtons(uint8_t buttons);
+    void vmUpdateState(uint32_t timestamp);
+    void vmOnCalibration();
+    void vmOnPwmStart(struct PwmConfig *config);
+    void vmOnPwmUpdate(struct PwmConfig *config);
+    void vmOnPwmEnd(struct PwmConfig *config);
+    void vmOnPwmGet(struct PwmConfig *out);
 };
-
-void vmInit(struct VM *vm);
-void vmOnHwReady(struct VM *vm);
-void vmOnButtons(struct VM *vm, uint8_t buttons);
-void vmUpdateState(struct VM *vm, uint32_t timestamp);
-void vmOnCalibration(struct VM *vm);
-void vmOnPwmStart(struct VM *vm, struct PwmConfig *config);
-void vmOnPwmUpdate(struct VM *vm, struct PwmConfig *config);
-void vmOnPwmEnd(struct VM *vm, struct PwmConfig *config);
-void vmOnPwmGet(struct VM *vm, struct PwmConfig *out);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
