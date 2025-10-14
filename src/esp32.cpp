@@ -1,3 +1,4 @@
+#include <atomic>
 #include <Arduino.h>
 #include "vm.h"
 #include "esp32.h"
@@ -178,45 +179,18 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 }
 
 #define LED_PIN 8
+std::atomic<uint16_t> blinkPeriod(500);
+void blinkTask(void *parameter) {
+  pinMode(LED_PIN, OUTPUT);
+  for (;;) {
+    digitalWrite(LED_PIN, HIGH);
+    vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
+    digitalWrite(LED_PIN, LOW);
+    vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
+  }
+}
 
-class LedBlinker
-{
-public:
-    const static uint8_t BLINK_DISABLED = 0;    // device not configured
-    const static uint8_t BLINK_NOT_MOUNTED = 3; // device not mounted
-    const static uint8_t BLINK_MOUNTED = 10;    // device mounted
-    const static uint8_t BLINK_SUSPENDED = 25;  // device suspended
-private:
-    uint16_t blink_interval_ms;
-    uint32_t start_ms = 0;
-    bool led_state = false;
-
-public:
-    LedBlinker() { setInterval(BLINK_NOT_MOUNTED); }
-    void task(const uint32_t current_time)
-    {
-        if (blink_interval_ms == BLINK_DISABLED)
-            return;
-        if (current_time - start_ms < blink_interval_ms)
-        {
-            // Serial.println("SW2");
-            return;
-        }
-        start_ms = current_time;
-        led_state = !led_state;
-        // Serial.print("SW1 ");
-        // Serial.println(led_state);
-        digitalWrite(LED_PIN, led_state);
-    }
-    void setInterval(const uint8_t interval100ms)
-    {
-        blink_interval_ms = interval100ms * 100;
-    }
-};
-
-LedBlinker ledBlinker;
 WiFiManager wm;
-bool runWifiManager;
 
 const char *ssid = "MyESP32-AP";
 const char *password = "password123";
@@ -225,30 +199,37 @@ int sclPin = 5;
 
 void setup()
 {
-    pinMode(LED_PIN, OUTPUT);
-    Serial.begin(9600);              // Start the Serial communication to send messages to the computer
+    Serial.begin(9600);
+    delay(2000);
     Serial.println("Hello, ESP32!"); // Print a message to the Serial Monitor
-    delay(5000);                     // Wait for a second to ensure the Serial Monitor is ready
-    ledBlinker.setInterval(LedBlinker::BLINK_NOT_MOUNTED);
+
+    xTaskCreate(
+        blinkTask,
+        "Blinker",
+        240,  // Stack size
+        NULL,
+        1,  // Priority
+        NULL
+        );
+
 
     Wire.begin(sdaPin, sclPin);
     Wire.setClock(50000);
-    wm.setConfigPortalBlocking(false);
+    wm.setConfigPortalBlocking(true);
     bool res = wm.autoConnect("ESPPSU", "E$PP0w4r"); // password protected ap
     if (!res)
     {
         Serial.println("Failed to connect");
-        runWifiManager = true;
+        blinkPeriod = 300;
         // ESP.restart();
     }
     else
     {
         // if you get here you have connected to the WiFi
-        runWifiManager = false;
-        ledBlinker.setInterval(LedBlinker::BLINK_MOUNTED);
+        blinkPeriod = 2000;
         Serial.println("connected...yeey :)");
     }
-    // viewModel = new VM(new DmmIna226(0x40)); // Initialize VM with DmmIna226 instance
+    viewModel = new VM(new DmmIna226(0x40)); // Initialize VM with DmmIna226 instance
 
     if (!MDNS.begin("ESPPower"))
     {
@@ -261,66 +242,53 @@ void setup()
         Serial.println("SPIFFS failed");
         return;
     }
-    //     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    //               { request->send(SPIFFS, "/index.html", "text/html"); });
-    //     server.on("/pwmon", HTTP_GET, handlePwmOn);
-    //     server.on("/pwmset", HTTP_GET, handlePwmSet);
-    //     server.on("/pwmoff", HTTP_GET, handlePwmOff);
-    //     server.on("/calibration", HTTP_GET, handleCalibration);
-    //     // curl "http://esppower.local/pwmget"
-    //     server.on("/pwmget", HTTP_GET, handlePwmGet);
-    //     server.onNotFound(handleNotFound);
-    //     ws.onEvent(onWebSocketEvent);
-    //     server.addHandler(&ws);
-    //     server.begin();
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                { request->send(SPIFFS, "/index.html", "text/html"); });
+    server.on("/pwmon", HTTP_GET, handlePwmOn);
+    server.on("/pwmset", HTTP_GET, handlePwmSet);
+    server.on("/pwmoff", HTTP_GET, handlePwmOff);
+    server.on("/calibration", HTTP_GET, handleCalibration);
+    // curl "http://esppower.local/pwmget"
+    server.on("/pwmget", HTTP_GET, handlePwmGet);
+    server.onNotFound(handleNotFound);
+    ws.onEvent(onWebSocketEvent);
+    server.addHandler(&ws);
+    server.begin();
 
-    //     viewModel->vmOnHwReady();
+    viewModel->vmOnHwReady();
     Serial.println("Setup complete, starting loop...");
 }
 
 void loop()
 {
-    Serial.println("LOOP");
-    ledBlinker.task(millis());
     delay(20);
-    if (runWifiManager)
+    // float input = state->pwm.duty / 255.f;
+    // float target = input * 10.0f;
+
+    // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
+    // mcuState.nn.debugOutput(input, target);
+
+    // static int count = 0;
+    // if (++count % 100 == 0) {
+    //   save_weights(&mcuState.nn);
+    // }
+
+    if (viewModel->isDirty)
     {
-        wm.process();
-        if (wm.getConfigPortalActive() == false)
+        if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
         {
-            Serial.println("Config portal closed");
-            runWifiManager = false;
-            ledBlinker.setInterval(LedBlinker::BLINK_MOUNTED);
-            // viewModel->vmOnHwReady();
+            const DmmResult &result = viewModel->dmmResult;
+            ws.cleanupClients();
+            mcuState.dmmSendTime = result.timestamp;
+            String response;
+            response += "{\"v\":";
+            response += result.voltage;
+            response += ",\"c\":";
+            response += result.current;
+            response += ",\"ts\":";
+            response += result.timestamp;
+            response += "}";
+            ws.textAll(response);
         }
     }
-    //     // float input = state->pwm.duty / 255.f;
-    //     // float target = input * 10.0f;
-
-    //     // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
-    //     // mcuState.nn.debugOutput(input, target);
-
-    //     // static int count = 0;
-    //     // if (++count % 100 == 0) {
-    //     //   save_weights(&mcuState.nn);
-    //     // }
-
-    //     if (viewModel->isDirty)
-    //     {
-    //         if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
-    //         {
-    //             const DmmResult &result = viewModel->dmmResult;
-    //             ws.cleanupClients();
-    //             mcuState.dmmSendTime = result.timestamp;
-    //             String response;
-    //             response += "{\"v\":";
-    //             response += result.voltage;
-    //             response += ",\"c\":";
-    //             response += result.current;
-    //             response += ",\"ts\":";
-    //             response += result.timestamp;
-    //             response += "}";
-    //             ws.textAll(response);
-    //         }
-    //     }
 }
