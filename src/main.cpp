@@ -212,6 +212,13 @@ void setup()
         NULL
         );
 
+    if (!SPIFFS.begin(true))
+    {
+        Serial.println("SPIFFS failed");
+        blinkPeriod = 300;
+        return;
+    }
+
 
     Wire.begin(sdaPin, sclPin);
     Wire.setClock(50000);
@@ -237,13 +244,11 @@ void setup()
     }
     MDNS.addService("esppower", "tcp", 80);
 
-    if (!SPIFFS.begin(true))
-    {
-        Serial.println("SPIFFS failed");
-        return;
-    }
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-                { request->send(SPIFFS, "/index.html", "text/html"); });
+                { 
+                    Serial.println("Serving /index.html");
+                    request->send(SPIFFS, "/index.html", "text/html"); 
+                });
     server.on("/pwmon", HTTP_GET, handlePwmOn);
     server.on("/pwmset", HTTP_GET, handlePwmSet);
     server.on("/pwmoff", HTTP_GET, handlePwmOff);
@@ -261,34 +266,34 @@ void setup()
 
 void loop()
 {
-    delay(20);
-    // float input = state->pwm.duty / 255.f;
-    // float target = input * 10.0f;
+    // delay(20);
+    // // float input = state->pwm.duty / 255.f;
+    // // float target = input * 10.0f;
 
-    // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
-    // mcuState.nn.debugOutput(input, target);
+    // // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
+    // // mcuState.nn.debugOutput(input, target);
 
-    // static int count = 0;
-    // if (++count % 100 == 0) {
-    //   save_weights(&mcuState.nn);
+    // // static int count = 0;
+    // // if (++count % 100 == 0) {
+    // //   save_weights(&mcuState.nn);
+    // // }
+
+    // if (viewModel->isDirty)
+    // {
+    //     if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
+    //     {
+    //         const DmmResult &result = viewModel->dmmResult;
+    //         ws.cleanupClients();
+    //         mcuState.dmmSendTime = result.timestamp;
+    //         String response;
+    //         response += "{\"v\":";
+    //         response += result.voltage;
+    //         response += ",\"c\":";
+    //         response += result.current;
+    //         response += ",\"ts\":";
+    //         response += result.timestamp;
+    //         response += "}";
+    //         ws.textAll(response);
+    //     }
     // }
-
-    if (viewModel->isDirty)
-    {
-        if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
-        {
-            const DmmResult &result = viewModel->dmmResult;
-            ws.cleanupClients();
-            mcuState.dmmSendTime = result.timestamp;
-            String response;
-            response += "{\"v\":";
-            response += result.voltage;
-            response += ",\"c\":";
-            response += result.current;
-            response += ",\"ts\":";
-            response += result.timestamp;
-            response += "}";
-            ws.textAll(response);
-        }
-    }
 }
