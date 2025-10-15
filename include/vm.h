@@ -20,7 +20,15 @@ public:
     uint16_t configuredCurrent {0};
 };
 
-class VM {
+class VmPwm {
+public:
+    virtual void onPwmStart(const PwmConfig& config) = 0;
+    virtual void onPwmUpdate(uint32_t duty) = 0;
+    virtual void onPwmEnd() = 0;
+    virtual const PwmConfig& getPwm() = 0;
+};
+
+class VM: public VmPwm {
 private:
     Dmm *dmmSource;
     Pwm *pwm;
@@ -36,8 +44,8 @@ public:
     void onButtons(uint8_t buttons);
     void updateState(uint32_t timestamp);
     void onCalibration();
-    void onPwmStart(const PwmConfig& config);
-    void onPwmUpdate(uint32_t duty);
-    void onPwmEnd();
-    const PwmConfig& getPwm();
+    void onPwmStart(const PwmConfig& config) override;
+    void onPwmUpdate(uint32_t duty) override;
+    void onPwmEnd() override;
+    const PwmConfig& getPwm() override;
 };

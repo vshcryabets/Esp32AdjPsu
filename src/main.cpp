@@ -88,7 +88,7 @@ void setup()
 
     dmm = new (dmm) DmmIna226(0x40);
     pwm = new (pwm) PwmEsp32();
-    httpHandler = new (httpHandler) HttpHandler();
+    httpHandler = new (httpHandler) HttpHandler(&viewModel);
 
     viewModel.init(dmm, pwm);
     Serial.println("Initializing DMM...");

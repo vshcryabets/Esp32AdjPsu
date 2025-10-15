@@ -2,7 +2,7 @@
 #include <SPIFFS.h>
 #include "pwm.h"
 
-HttpHandler::HttpHandler(): server(80), ws("/ws")
+HttpHandler::HttpHandler(VmPwm *vmPwm): server(80), ws("/ws"), vmPwm(vmPwm)
 {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
@@ -43,15 +43,14 @@ void HttpHandler::handlePwmOff(AsyncWebServerRequest *request)
         const AsyncWebParameter *p = request->getParam("channel");
         PwmConfig espPwmConfig;
         espPwmConfig.channel = atoi(p->value().c_str());
-        // viewModel->vmOnPwmEnd(&espPwmConfig);
+        vmPwm->onPwmEnd();
     }
     request->send(200, "text/plain", "OK");
 }
 
 void HttpHandler::handlePwmGet(AsyncWebServerRequest *request)
 {
-    PwmConfig config;
-    // viewModel->vmOnPwmGet(&config);
+    const PwmConfig &config = vmPwm->getPwm();
     String response;
     response += "{\"isActive\":";
     response += config.isActive;
@@ -83,7 +82,7 @@ void HttpHandler::handlePwmSet(AsyncWebServerRequest *request)
         PwmConfig espPwmConfig;
         espPwmConfig.channel = channel;
         espPwmConfig.duty = duty;
-        // viewModel->vmOnPwmUpdate(&espPwmConfig);
+        vmPwm->onPwmUpdate(duty);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -135,7 +134,7 @@ void HttpHandler::handlePwmOn(AsyncWebServerRequest *request)
         espPwmConfig.pin = pin;
         espPwmConfig.duty = duty;
 
-        // viewModel.onPwmStart(&espPwmConfig);
+        vmPwm->onPwmStart(espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else

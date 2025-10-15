@@ -1,12 +1,14 @@
 #pragma once
 #include <ESPAsyncWebServer.h>
+#include "vm.h"
 
 class HttpHandler {
 private:
     AsyncWebServer server; //(80);
     AsyncWebSocket ws; //("/ws");
+    VmPwm *vmPwm;
 public:
-    HttpHandler();
+    HttpHandler(VmPwm *vmPwm);
 private:
     void handlePwmOn(AsyncWebServerRequest *request);
     void handlePwmSet(AsyncWebServerRequest *request);
