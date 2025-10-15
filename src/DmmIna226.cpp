@@ -3,6 +3,7 @@
 DmmIna226::DmmIna226(uint16_t address): dmmModule(address) {
     if (!dmmModule.begin()) {
         Serial.println("Can't connect INA226.");
+        return;
     }
     dmmModule.setMaxCurrentShunt(0.785f, 0.1016);
     auto mode = dmmModule.getMode();
