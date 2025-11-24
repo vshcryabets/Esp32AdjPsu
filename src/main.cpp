@@ -4,25 +4,22 @@
 #include <SPIFFS.h>
 #include <Arduino.h>
 #include "vm.h"
-// #include "esp32.h"
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include "Wire.h"
 #include <AsyncTCP.h>
-#include "DmmIna226.h"
-#include "Http.h"
+#include "impl/DmmIna226.h"
+#include "HttpController.h"
 
-
-
-alignas(DmmIna226) uint8_t bmmIna226Buffer[sizeof(DmmIna226)];
+alignas(DmmIna226) uint8_t dmmBuffer[sizeof(DmmIna226)];
 DmmIna226 *dmm;
 
 alignas(PwmEsp32) uint8_t pwmBuffer[sizeof(PwmEsp32)];
 PwmEsp32 *pwm;
 
-alignas(HttpHandler) uint8_t httpHandlerBuffer[sizeof(HttpHandler)];
-HttpHandler *httpHandler;
+alignas(HttpController) uint8_t httpControllerBuffer[sizeof(HttpController)];
+HttpController *httpController;
 
 VM viewModel;
 
@@ -68,7 +65,6 @@ void setup()
         return;
     }
 
-
     Wire.begin(sdaPin, sclPin);
     Wire.setClock(50000);
     wm.setConfigPortalBlocking(true);
@@ -86,12 +82,15 @@ void setup()
         Serial.println("connected...yeey :)");
     }
 
-    dmm = new (dmm) DmmIna226(0x40);
-    pwm = new (pwm) PwmEsp32();
-    httpHandler = new (httpHandler) HttpHandler(&viewModel);
-
+    Serial.println("A11");
+    delay(1000);
+    Serial.println("A11.1");
+    dmm = new (dmmBuffer) DmmIna226(0x40);
+    Serial.println("A12");
+    pwm = new (pwmBuffer) PwmEsp32();
+    Serial.println("A13");
     viewModel.init(dmm, pwm);
-    Serial.println("Initializing DMM...");
+    Serial.println("A14");
 
     if (!MDNS.begin("ESPPower"))
     {
@@ -100,6 +99,9 @@ void setup()
     MDNS.addService("esppower", "tcp", 80);
 
     viewModel.onHwReady();
+    Serial.println("A15");
+    httpController = new (httpControllerBuffer) HttpController(&viewModel);
+    httpController->begin();
     Serial.println("Setup complete, starting loop...");
 }
 

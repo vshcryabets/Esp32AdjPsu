@@ -11,25 +11,24 @@ struct PwmConfig
     int8_t pin;
 };
 
-class Pwm {
-protected:
-    PwmConfig config;
+class PwmControler {
 public:
-    Pwm() = default;
-    virtual ~Pwm() = default;
-    virtual void start(const PwmConfig& config) = 0;
-    virtual void setup(uint32_t duty) = 0;
-    virtual void stop() = 0;
-    virtual const PwmConfig& getConfig() const { return config; }
+    virtual ~PwmControler() = default;
+    virtual void onPwmStart(const PwmConfig& config) = 0;
+    virtual void onPwmUpdate(uint32_t duty) = 0;
+    virtual void onPwmEnd() = 0;
+    virtual const PwmConfig& getPwm() = 0;
 };
 
-class PwmEsp32 : public Pwm {
+class PwmEsp32 : public PwmControler {
 private:
+    PwmConfig config;
     int8_t channel;    
 public:
     PwmEsp32() = default;
     ~PwmEsp32() override = default;
-    void start(const PwmConfig& config) override;
-    void setup(uint32_t duty) override;
-    void stop() override;
+    void onPwmStart(const PwmConfig& config) override;
+    void onPwmUpdate(uint32_t duty) override;
+    void onPwmEnd() override;
+    const PwmConfig& getPwm() override { return config; };
 };

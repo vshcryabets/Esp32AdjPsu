@@ -1,24 +1,27 @@
-#include "Http.h"
+#include "HttpController.h"
 #include <SPIFFS.h>
 #include "pwm.h"
 
-HttpHandler::HttpHandler(VmPwm *vmPwm): server(80), ws("/ws"), vmPwm(vmPwm)
+HttpController::HttpController(PwmControler *pwm) : server(80), ws("/ws"), pwm(pwm)
+{
+}
+
+void HttpController::begin()
 {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-                { 
+              { 
                     Serial.println("Serving /index.html");
-                    request->send(SPIFFS, "/index.html", "text/html"); 
-                });
-    server.on("/pwmon", HTTP_GET, std::bind(&HttpHandler::handlePwmOn, this, std::placeholders::_1));
-    server.on("/pwmset", HTTP_GET, std::bind(&HttpHandler::handlePwmSet, this, std::placeholders::_1));
-    server.on("/pwmoff", HTTP_GET, std::bind(&HttpHandler::handlePwmOff, this, std::placeholders::_1));
-    server.on("/calibration", HTTP_GET, std::bind(&HttpHandler::handleCalibration, this, std::placeholders::_1));
+                    request->send(SPIFFS, "/index.html", "text/html"); });
+    server.on("/pwmon", HTTP_GET, std::bind(&HttpController::handlePwmOn, this, std::placeholders::_1));
+    server.on("/pwmset", HTTP_GET, std::bind(&HttpController::handlePwmSet, this, std::placeholders::_1));
+    server.on("/pwmoff", HTTP_GET, std::bind(&HttpController::handlePwmOff, this, std::placeholders::_1));
+    server.on("/calibration", HTTP_GET, std::bind(&HttpController::handleCalibration, this, std::placeholders::_1));
     // curl "http://esppower.local/pwmget"
-    server.on("/pwmget", HTTP_GET, std::bind(&HttpHandler::handlePwmGet, this, std::placeholders::_1));
-    server.onNotFound([](AsyncWebServerRequest *request){
-        request->send(404, "text/plain", "Not found");
-    });
-    ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
+    server.on("/pwmget", HTTP_GET, std::bind(&HttpController::handlePwmGet, this, std::placeholders::_1));
+    server.onNotFound([](AsyncWebServerRequest *request)
+                      { request->send(404, "text/plain", "Not found"); });
+    ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+               {
         switch (type)
         {
         case WS_EVT_CONNECT:
@@ -30,27 +33,26 @@ HttpHandler::HttpHandler(VmPwm *vmPwm): server(80), ws("/ws"), vmPwm(vmPwm)
         case WS_EVT_DATA:
             onWebSocketMessage(arg, data, len);
             break;
-        }
-    });
+        } });
     server.addHandler(&ws);
     server.begin();
 }
 
-void HttpHandler::handlePwmOff(AsyncWebServerRequest *request)
+void HttpController::handlePwmOff(AsyncWebServerRequest *request)
 {
     if (request->hasParam("channel"))
     {
         const AsyncWebParameter *p = request->getParam("channel");
         PwmConfig espPwmConfig;
         espPwmConfig.channel = atoi(p->value().c_str());
-        vmPwm->onPwmEnd();
+        pwm->onPwmEnd();
     }
     request->send(200, "text/plain", "OK");
 }
 
-void HttpHandler::handlePwmGet(AsyncWebServerRequest *request)
+void HttpController::handlePwmGet(AsyncWebServerRequest *request)
 {
-    const PwmConfig &config = vmPwm->getPwm();
+    const PwmConfig &config = pwm->getPwm();
     String response;
     response += "{\"isActive\":";
     response += config.isActive;
@@ -66,7 +68,7 @@ void HttpHandler::handlePwmGet(AsyncWebServerRequest *request)
     request->send(200, "application/json", response.c_str());
 }
 
-void HttpHandler::handlePwmSet(AsyncWebServerRequest *request)
+void HttpController::handlePwmSet(AsyncWebServerRequest *request)
 {
     int8_t channel = -1;
     int32_t duty = -1;
@@ -82,7 +84,7 @@ void HttpHandler::handlePwmSet(AsyncWebServerRequest *request)
         PwmConfig espPwmConfig;
         espPwmConfig.channel = channel;
         espPwmConfig.duty = duty;
-        vmPwm->onPwmUpdate(duty);
+        pwm->onPwmUpdate(duty);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -91,13 +93,13 @@ void HttpHandler::handlePwmSet(AsyncWebServerRequest *request)
     }
 }
 
-void HttpHandler::handleCalibration(AsyncWebServerRequest *request)
+void HttpController::handleCalibration(AsyncWebServerRequest *request)
 {
     // viewModel->vmOnCalibration();
     request->send(200, "text/plain", "OK");
 }
 
-void HttpHandler::handlePwmOn(AsyncWebServerRequest *request)
+void HttpController::handlePwmOn(AsyncWebServerRequest *request)
 {
     int8_t channel = -1;
     int32_t freq = -1;
@@ -134,7 +136,7 @@ void HttpHandler::handlePwmOn(AsyncWebServerRequest *request)
         espPwmConfig.pin = pin;
         espPwmConfig.duty = duty;
 
-        vmPwm->onPwmStart(espPwmConfig);
+        pwm->onPwmStart(espPwmConfig);
         request->send(200, "text/plain", "OK");
     }
     else
@@ -143,7 +145,7 @@ void HttpHandler::handlePwmOn(AsyncWebServerRequest *request)
     }
 }
 
-void HttpHandler::onWebSocketMessage(void *arg, uint8_t *data, size_t len)
+void HttpController::onWebSocketMessage(void *arg, uint8_t *data, size_t len)
 {
     AwsFrameInfo *info = (AwsFrameInfo *)arg;
     if (info->final && info->opcode == WS_TEXT)

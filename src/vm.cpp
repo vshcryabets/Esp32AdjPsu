@@ -3,7 +3,7 @@
 
 #define DMM_READ_INTERVAL 250
 
-void VM::init(Dmm *dmmSource, Pwm *pwm) 
+void VM::init(Dmm *dmmSource, PwmControler *pwm) 
 {
     dmmNextReadTime = 0;
     this->dmmSource = dmmSource;
@@ -15,6 +15,7 @@ void VM::init(Dmm *dmmSource, Pwm *pwm)
 
 void VM::onHwReady()
 {
+    dmmSource->connect(); // TODO handle failure
 }
 
 void VM::onButtons(uint8_t buttons)
@@ -34,22 +35,22 @@ void VM::updateState(uint32_t timestamp)
 
 void VM::onPwmStart(const PwmConfig& config)
 {
-    pwm->start(config);
+    pwm->onPwmStart(config);
 }
 
 void VM::onPwmUpdate(uint32_t duty)
 {
-    pwm->setup(duty);
+    pwm->onPwmUpdate(duty);
 }
 
 void VM::onPwmEnd()
 {
-    pwm->stop();
+    pwm->onPwmEnd();
 }
 
 const PwmConfig& VM::getPwm()
 {
-    return pwm->getConfig();
+    return pwm->getPwm();
 }
 
 void VM::onCalibration()

@@ -2,13 +2,14 @@
 #include <ESPAsyncWebServer.h>
 #include "vm.h"
 
-class HttpHandler {
+class HttpController {
 private:
     AsyncWebServer server; //(80);
     AsyncWebSocket ws; //("/ws");
-    VmPwm *vmPwm;
+    PwmControler *pwm;
 public:
-    HttpHandler(VmPwm *vmPwm);
+    HttpController(PwmControler *pwm);
+    void begin();
 private:
     void handlePwmOn(AsyncWebServerRequest *request);
     void handlePwmSet(AsyncWebServerRequest *request);
