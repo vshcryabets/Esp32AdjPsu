@@ -1,7 +1,7 @@
 #include <atomic>
 #include <new>
 
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <Arduino.h>
 #include "vm.h"
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
@@ -58,9 +58,9 @@ void setup()
         NULL
         );
 
-    if (!SPIFFS.begin(true))
+    if (!LittleFS.begin(true))
     {
-        Serial.println("SPIFFS failed");
+        Serial.println("LittleFS failed");
         blinkPeriod = 300;
         return;
     }

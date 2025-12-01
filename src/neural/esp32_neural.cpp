@@ -1,13 +1,13 @@
 #include "neural.h"
 #include <Arduino.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 
 #ifdef ESP32
 
 extern "C"
 void neuralSaveModel(NeuralNetwork *nn)
 {
-    File file = SPIFFS.open("/weights.txt", FILE_WRITE);
+    File file = LittleFS.open("/weights.txt", FILE_WRITE);
     if (!file) {
         Serial.println("Failed to open file for writing");
         return;
@@ -41,7 +41,7 @@ void neuralLoadModel(NeuralNetwork *nn)
     // calibration step
     nn->calibrateStep = 0;
 
-    File file = SPIFFS.open("/weights.txt", FILE_READ);
+    File file = LittleFS.open("/weights.txt", FILE_READ);
     if (!file) {
         Serial.println("Failed to open file for reading");
         return;
