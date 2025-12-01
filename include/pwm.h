@@ -1,30 +1,33 @@
-#ifndef PWM_H
-#define PWM_H
-
-#include "vm.h"
+#pragma once
+#include <cstdint>
 
 struct PwmConfig
 {
-    int8_t work;
+    uint8_t isActive;
     int16_t duty;
-#ifdef STM8
-#elif defined(ESP32)
     int8_t channel;
     int32_t freq;
     int8_t resolution;
     int8_t pin;
-#endif    
 };
 
+class PwmControler {
+public:
+    virtual ~PwmControler() = default;
+    virtual void onPwmStart(const PwmConfig& config) = 0;
+    virtual void onPwmUpdate(uint32_t duty) = 0;
+    virtual void onPwmEnd() = 0;
+    virtual const PwmConfig& getPwm() = 0;
+};
 
-#ifdef __cplusplus
-extern "C" { 
-#endif
-    void pwmStart(struct PwmConfig* config);
-    void pwmSetup(struct PwmConfig* config);
-    void pwmStop(struct PwmConfig* config);
-#ifdef __cplusplus
-}
-#endif
-
-#endif //ESP32_H
+class PwmEsp32 : public PwmControler {
+private:
+    PwmConfig config;
+public:
+    PwmEsp32() = default;
+    ~PwmEsp32() override = default;
+    void onPwmStart(const PwmConfig& config) override;
+    void onPwmUpdate(uint32_t duty) override;
+    void onPwmEnd() override;
+    const PwmConfig& getPwm() override { return config; };
+};

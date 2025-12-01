@@ -1,13 +1,18 @@
-#include "DmmIna226.h"
+#include "impl/DmmIna226.h"
 
 DmmIna226::DmmIna226(uint16_t address): dmmModule(address) {
+}
+
+bool DmmIna226::connect() {
     if (!dmmModule.begin()) {
         Serial.println("Can't connect INA226.");
+        return false;
     }
     dmmModule.setMaxCurrentShunt(0.785f, 0.1016);
     auto mode = dmmModule.getMode();
     // Serial.print("Mode = ");
     // Serial.println(mode);
+    return true;
 }
 
 void DmmIna226::read(DmmResult &result, uint8_t channel) {

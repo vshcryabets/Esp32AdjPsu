@@ -2,37 +2,43 @@
 
 #include <stdint.h>
 #include "pwm.h"
-#include "dmm.h"
+#include "Dmm.h"
 #include "neural.h"
 
-enum VMState {
+enum class VMState: uint8_t {
     INDICATE = 1,
     CONFIGURE_V,
     CALIBRATE,
     LAST
 };
 
-class VM {
-private:
-    Dmm *dmmSource;    
+class State {
 public:
-    enum VMState state;
-    uint8_t isDirty;
-    uint16_t configuredVoltage;
-    uint16_t configuredCurrent;
-    uint32_t dmmNextReadTime;
-    struct DmmResult dmmResult;
-    struct PwmConfig pwm;
-    struct NeuralNetwork neural;
-public:
-    VM(Dmm *dmmSource);
+    VMState state = VMState::INDICATE;
+    uint8_t isDirty {1};
+    uint16_t configuredVoltage {0};
+    uint16_t configuredCurrent {0};
+    bool dmmConnected {false};
+};
 
-    void vmOnHwReady();
-    void vmOnButtons(uint8_t buttons);
-    void vmUpdateState(uint32_t timestamp);
-    void vmOnCalibration();
-    void vmOnPwmStart(struct PwmConfig *config);
-    void vmOnPwmUpdate(struct PwmConfig *config);
-    void vmOnPwmEnd(struct PwmConfig *config);
-    void vmOnPwmGet(struct PwmConfig *out);
+class VM: public PwmControler {
+private:
+    Dmm *dmmSource;
+    PwmControler *pwm;
+public:
+    uint32_t dmmNextReadTime;
+    DmmResult dmmResult;
+    NeuralNetwork neural;
+    State state;
+public:
+    VM() = default;
+    void init(Dmm *dmmSource, PwmControler *pwm);
+    void onHwReady();
+    void onButtons(uint8_t buttons);
+    void updateState(uint32_t timestamp);
+    void onCalibration();
+    void onPwmStart(const PwmConfig& config) override;
+    void onPwmUpdate(uint32_t duty) override;
+    void onPwmEnd() override;
+    const PwmConfig& getPwm() override;
 };
