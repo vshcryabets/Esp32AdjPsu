@@ -12,6 +12,7 @@ void HttpController::begin()
               { 
                     Serial.println("Serving /index.html");
                     request->send(SPIFFS, "/index.html", "text/html"); });
+    // curl "http://esppower.local/pwmon?channel=0&freq=4000&res=8&pin=0&duty=128"
     server.on("/pwmon", HTTP_GET, std::bind(&HttpController::handlePwmOn, this, std::placeholders::_1));
     server.on("/pwmset", HTTP_GET, std::bind(&HttpController::handlePwmSet, this, std::placeholders::_1));
     server.on("/pwmoff", HTTP_GET, std::bind(&HttpController::handlePwmOff, this, std::placeholders::_1));
@@ -40,13 +41,7 @@ void HttpController::begin()
 
 void HttpController::handlePwmOff(AsyncWebServerRequest *request)
 {
-    if (request->hasParam("channel"))
-    {
-        const AsyncWebParameter *p = request->getParam("channel");
-        PwmConfig espPwmConfig;
-        espPwmConfig.channel = atoi(p->value().c_str());
-        pwm->onPwmEnd();
-    }
+    pwm->onPwmEnd();
     request->send(200, "text/plain", "OK");
 }
 

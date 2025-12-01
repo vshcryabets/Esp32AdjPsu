@@ -68,7 +68,7 @@ void setup()
     Wire.begin(sdaPin, sclPin);
     Wire.setClock(50000);
     wm.setConfigPortalBlocking(true);
-    bool res = wm.autoConnect("ESPPSU", "E$PP0w4r"); // password protected ap
+    bool res = wm.autoConnect("ESPPower", "E$PP0w4r"); // password protected ap
     if (!res)
     {
         Serial.println("Failed to connect");
@@ -82,15 +82,10 @@ void setup()
         Serial.println("connected...yeey :)");
     }
 
-    Serial.println("A11");
     delay(1000);
-    Serial.println("A11.1");
     dmm = new (dmmBuffer) DmmIna226(0x40);
-    Serial.println("A12");
     pwm = new (pwmBuffer) PwmEsp32();
-    Serial.println("A13");
     viewModel.init(dmm, pwm);
-    Serial.println("A14");
 
     if (!MDNS.begin("ESPPower"))
     {
@@ -99,7 +94,6 @@ void setup()
     MDNS.addService("esppower", "tcp", 80);
 
     viewModel.onHwReady();
-    Serial.println("A15");
     httpController = new (httpControllerBuffer) HttpController(&viewModel);
     httpController->begin();
     Serial.println("Setup complete, starting loop...");
@@ -107,34 +101,4 @@ void setup()
 
 void loop()
 {
-    // delay(20);
-    // // float input = state->pwm.duty / 255.f;
-    // // float target = input * 10.0f;
-
-    // // mcuState.nn.train_step(input, target, 0.1f); // learning rate = 0.1
-    // // mcuState.nn.debugOutput(input, target);
-
-    // // static int count = 0;
-    // // if (++count % 100 == 0) {
-    // //   save_weights(&mcuState.nn);
-    // // }
-
-    // if (viewModel->isDirty)
-    // {
-    //     if (viewModel->dmmResult.timestamp != mcuState.dmmSendTime)
-    //     {
-    //         const DmmResult &result = viewModel->dmmResult;
-    //         ws.cleanupClients();
-    //         mcuState.dmmSendTime = result.timestamp;
-    //         String response;
-    //         response += "{\"v\":";
-    //         response += result.voltage;
-    //         response += ",\"c\":";
-    //         response += result.current;
-    //         response += ",\"ts\":";
-    //         response += result.timestamp;
-    //         response += "}";
-    //         ws.textAll(response);
-    //     }
-    // }
 }

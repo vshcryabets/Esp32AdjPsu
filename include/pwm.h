@@ -23,7 +23,6 @@ public:
 class PwmEsp32 : public PwmControler {
 private:
     PwmConfig config;
-    int8_t channel;    
 public:
     PwmEsp32() = default;
     ~PwmEsp32() override = default;

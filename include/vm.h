@@ -18,6 +18,7 @@ public:
     uint8_t isDirty {1};
     uint16_t configuredVoltage {0};
     uint16_t configuredCurrent {0};
+    bool dmmConnected {false};
 };
 
 class VM: public PwmControler {

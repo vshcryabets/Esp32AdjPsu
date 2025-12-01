@@ -15,7 +15,8 @@ void VM::init(Dmm *dmmSource, PwmControler *pwm)
 
 void VM::onHwReady()
 {
-    dmmSource->connect(); // TODO handle failure
+    this->state.dmmConnected = dmmSource->connect();
+    this->state.isDirty = 1;
 }
 
 void VM::onButtons(uint8_t buttons)
