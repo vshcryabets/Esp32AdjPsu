@@ -8,10 +8,12 @@ HttpController::HttpController(PwmControler *pwm) : server(80), ws("/ws"), pwm(p
 
 void HttpController::begin()
 {
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { 
-                    Serial.println("Serving /index.html");
-                    request->send(SPIFFS, "/index.html", "text/html"); });
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) { 
+                    request->send(SPIFFS, "/index.html", "text/html"); 
+            }
+        );
+    server.serveStatic("/html/", SPIFFS, "/")
+        .setCacheControl("max-age=600");
     // curl "http://esppower.local/pwmon?channel=0&freq=4000&res=8&pin=0&duty=128"
     server.on("/pwmon", HTTP_GET, std::bind(&HttpController::handlePwmOn, this, std::placeholders::_1));
     server.on("/pwmset", HTTP_GET, std::bind(&HttpController::handlePwmSet, this, std::placeholders::_1));
