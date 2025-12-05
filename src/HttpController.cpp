@@ -12,8 +12,7 @@ void HttpController::begin()
                     request->send(SPIFFS, "/index.html", "text/html"); 
             }
         );
-    server.serveStatic("/html/", SPIFFS, "/")
-        .setCacheControl("max-age=600");
+    server.serveStatic("/html/", SPIFFS, "/");
     // curl "http://esppower.local/pwmon?channel=0&freq=4000&res=8&pin=0&duty=128"
     server.on("/pwmon", HTTP_GET, std::bind(&HttpController::handlePwmOn, this, std::placeholders::_1));
     server.on("/pwmset", HTTP_GET, std::bind(&HttpController::handlePwmSet, this, std::placeholders::_1));
@@ -21,6 +20,7 @@ void HttpController::begin()
     server.on("/calibration", HTTP_GET, std::bind(&HttpController::handleCalibration, this, std::placeholders::_1));
     // curl "http://esppower.local/pwmget"
     server.on("/pwmget", HTTP_GET, std::bind(&HttpController::handlePwmGet, this, std::placeholders::_1));
+    server.on("/api/read_partitions", HTTP_GET, std::bind(&HttpController::handleReadPartitions, this, std::placeholders::_1));
     server.onNotFound([](AsyncWebServerRequest *request)
                       { request->send(404, "text/plain", "Not found"); });
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
@@ -151,4 +151,27 @@ void HttpController::onWebSocketMessage(void *arg, uint8_t *data, size_t len)
         Serial.printf("Received: %s\n", (char *)data);
         // ws.textAll("Echo: " + String((char*)data));  // Echo message back to all clients
     }
+}
+
+void HttpController::handleReadPartitions(AsyncWebServerRequest *request)
+{
+    String response;
+    const esp_partition_t *partition = nullptr;
+    esp_partition_iterator_t it = esp_partition_find(
+        ESP_PARTITION_TYPE_ANY, 
+        ESP_PARTITION_SUBTYPE_ANY, 
+        NULL);
+    while (it != NULL) {
+        partition = esp_partition_get(it);
+        response += "Partition: ";
+        response += partition->label;
+        response += ", Address: 0x";
+        response += String(partition->address, HEX);
+        response += ", Size: ";
+        response += String(partition->size);
+        response += " bytes\n";
+        it = esp_partition_next(it);
+    }
+    esp_partition_iterator_release(it);
+    request->send(200, "text/plain", response);
 }

@@ -1,0 +1,57 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    background-color: #f9f9f9;
+}
+
+.box {
+    display: flex;
+    flex-flow: column;
+    padding: 10pt;
+    margin: 10pt;
+}
+
+.sec {
+    display: flex;
+    width: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 30pt;
+    padding: 7pt;
+    align-items: center;
+    gap: 7pt;
+    color: #444;
+}
+
+.ttl {
+    display: flex;
+    user-select: none;
+    width: 32pt;
+    height: 32pt;
+    font-size: 12pt;
+    border: 2px solid #444;
+    border-radius: 7px;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 2px 2px 2px 2px #AAA;
+}
+
+.slider {
+    width: 100%;
+    background: #ddd;
+    accent-color: #888;
+}
+
+.topmenu {
+    display: flex;
+    gap: 15px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14pt;
+}
+
+.topmenu a {
+    text-decoration: none;
+    color: #444;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}

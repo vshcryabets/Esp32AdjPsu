@@ -16,6 +16,7 @@ private:
     void handlePwmOff(AsyncWebServerRequest *request);
     void handlePwmGet(AsyncWebServerRequest *request);
     void handleCalibration(AsyncWebServerRequest *request);
+    void handleReadPartitions(AsyncWebServerRequest *request);
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onWebSocketMessage(void *arg, uint8_t *data, size_t len);
