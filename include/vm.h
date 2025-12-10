@@ -5,6 +5,8 @@
 #include "Dmm.h"
 #include "neural.h"
 
+#define MAX_RECEIVERS 4
+
 enum class VMState: uint8_t {
     INDICATE = 1,
     CONFIGURE_V,
@@ -19,17 +21,31 @@ public:
     uint16_t configuredVoltage {0};
     uint16_t configuredCurrent {0};
     bool dmmConnected {false};
+    uint32_t dmmNextReadTime;
+    DmmResult dmmResult;
 };
 
-class VM: public PwmControler {
+
+class VmStateReceiver {
+public:
+    virtual void onStateChanged(const State& state) const = 0;
+};
+
+class VmStateProvider {
+public:
+    virtual const State& getState() = 0;
+    virtual void subscribe(const VmStateReceiver* receiver) = 0;
+    virtual void unsubscribe(const VmStateReceiver* receiver) = 0;
+};
+
+class VM: public PwmControler, public VmStateProvider {
 private:
     Dmm *dmmSource;
     PwmControler *pwm;
 public:
-    uint32_t dmmNextReadTime;
-    DmmResult dmmResult;
     NeuralNetwork neural;
     State state;
+    const VmStateReceiver* stateReceivers[MAX_RECEIVERS] = {nullptr, nullptr, nullptr, nullptr};
 public:
     VM() = default;
     void init(Dmm *dmmSource, PwmControler *pwm);
@@ -41,4 +57,11 @@ public:
     void onPwmUpdate(uint32_t duty) override;
     void onPwmEnd() override;
     const PwmConfig& getPwm() override;
+    const State& getState() override {
+        return state;
+    }
+    void subscribe(const VmStateReceiver* receiver) override;
+    void unsubscribe(const VmStateReceiver* receiver) override;
+private:
+    void notifyStateChanged();
 };

@@ -5,32 +5,33 @@
 
 void VM::init(Dmm *dmmSource, PwmControler *pwm) 
 {
-    dmmNextReadTime = 0;
     this->dmmSource = dmmSource;
     this->pwm = pwm;
-    memset(&dmmResult, 0, sizeof(dmmResult));
+    state.dmmNextReadTime = 0;
+    state.dmmResult.timestamp = 0;
     memset(&neural, 0, sizeof(neural));
     neuralLoadModel(&neural);
+    notifyStateChanged();
 }
 
 void VM::onHwReady()
 {
     this->state.dmmConnected = dmmSource->connect();
-    this->state.isDirty = 1;
+    notifyStateChanged();
 }
 
 void VM::onButtons(uint8_t buttons)
 {
-    state.isDirty = 1;
+    notifyStateChanged();
 }
 
 void VM::updateState(uint32_t timestamp)
 {
-    if (dmmNextReadTime < timestamp)
+    if (state.dmmNextReadTime < timestamp)
     {
-        dmmSource->read(dmmResult, 0);
-        dmmNextReadTime = timestamp + DMM_READ_INTERVAL;
-        state.isDirty = 1;
+        state.dmmResult = dmmSource->read(0);
+        state.dmmNextReadTime = timestamp + DMM_READ_INTERVAL;
+        notifyStateChanged();
     }
 }
 
@@ -57,5 +58,32 @@ const PwmConfig& VM::getPwm()
 void VM::onCalibration()
 {
     state.state = VMState::CALIBRATE;
+    notifyStateChanged();
+}
+
+void VM::subscribe(const VmStateReceiver* receiver) {
+    for (size_t i = 0; i < MAX_RECEIVERS; i++) {
+        if (stateReceivers[i] == nullptr) {
+            stateReceivers[i] = receiver;
+            break;
+        }
+    }
+}
+
+void VM::unsubscribe(const VmStateReceiver* receiver) {
+    for (size_t i = 0; i < MAX_RECEIVERS; i++) {
+        if (stateReceivers[i] == receiver) {
+            stateReceivers[i] = nullptr;
+            break;
+        }
+    }
+}
+
+void VM::notifyStateChanged() {
     state.isDirty = 1;
+    for (size_t i = 0; i < MAX_RECEIVERS; i++) {
+        if (stateReceivers[i] != nullptr) {
+            stateReceivers[i]->onStateChanged(state);
+        }
+    }
 }

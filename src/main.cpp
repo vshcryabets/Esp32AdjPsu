@@ -5,10 +5,8 @@
 #include <Arduino.h>
 #include "vm.h"
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
-#include <WebServer.h>
 #include <ESPmDNS.h>
 #include "Wire.h"
-#include <AsyncTCP.h>
 #include "impl/DmmIna226.h"
 #include "HttpController.h"
 
@@ -24,24 +22,24 @@ HttpController *httpController;
 VM viewModel;
 
 
-#define LED_PIN 8
+// #define LED_PIN 8
 std::atomic<uint16_t> blinkPeriod(500);
-void blinkTask(void *parameter) {
-  pinMode(LED_PIN, OUTPUT);
-  for (;;) {
-    digitalWrite(LED_PIN, HIGH);
-    vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
-    digitalWrite(LED_PIN, LOW);
-    vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
-  }
-}
+// void blinkTask(void *parameter) {
+//   pinMode(LED_PIN, OUTPUT);
+//   for (;;) {
+//     digitalWrite(LED_PIN, HIGH);
+//     vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
+//     digitalWrite(LED_PIN, LOW);
+//     vTaskDelay(blinkPeriod.load() / portTICK_PERIOD_MS);
+//   }
+// }
 
 WiFiManager wm;
 
 const char *ssid = "MyESP32-AP";
 const char *password = "password123";
-int sdaPin = 4;
-int sclPin = 5;
+int sdaPin = 8;
+int sclPin = 9;
 
 void setup()
 {
@@ -49,14 +47,14 @@ void setup()
     delay(2000);
     Serial.println("Hello, ESP32!"); // Print a message to the Serial Monitor
 
-    xTaskCreate(
-        blinkTask,
-        "Blinker",
-        240,  // Stack size
-        NULL,
-        1,  // Priority
-        NULL
-        );
+    // xTaskCreate(
+    //     blinkTask,
+    //     "Blinker",
+    //     240,  // Stack size
+    //     NULL,
+    //     1,  // Priority
+    //     NULL
+    //     );
 
     if (!SPIFFS.begin(true))
     {
@@ -94,11 +92,13 @@ void setup()
     MDNS.addService("esppower", "tcp", 80);
 
     viewModel.onHwReady();
-    httpController = new (httpControllerBuffer) HttpController(&viewModel);
+    httpController = new (httpControllerBuffer) HttpController(&viewModel, &viewModel);
     httpController->begin();
     Serial.println("Setup complete, starting loop...");
 }
 
 void loop()
 {
+    viewModel.updateState(millis());
+    delay(100);
 }

@@ -2,12 +2,20 @@
 #include <SPIFFS.h>
 #include "pwm.h"
 
-HttpController::HttpController(PwmControler *pwm) : server(80), ws("/ws"), pwm(pwm)
+HttpController::HttpController(PwmControler *pwm, VmStateProvider *vmStateProvider) : 
+    server(80), ws("/ws"), pwm(pwm), vmStateProvider(vmStateProvider)
 {
+}
+
+void HttpController::end()
+{
+    vmStateProvider->unsubscribe(this);
+    server.end();
 }
 
 void HttpController::begin()
 {
+    vmStateProvider->subscribe(this);
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) { 
                     request->send(SPIFFS, "/index.html", "text/html"); 
             }
@@ -21,8 +29,8 @@ void HttpController::begin()
     // curl "http://esppower.local/pwmget"
     server.on("/pwmget", HTTP_GET, std::bind(&HttpController::handlePwmGet, this, std::placeholders::_1));
     server.on("/api/read_partitions", HTTP_GET, std::bind(&HttpController::handleReadPartitions, this, std::placeholders::_1));
-    server.onNotFound([](AsyncWebServerRequest *request)
-                      { request->send(404, "text/plain", "Not found"); });
+    server.on("/api/state", HTTP_GET, std::bind(&HttpController::handleGetState, this, std::placeholders::_1));
+    server.onNotFound([](AsyncWebServerRequest *request) { request->send(404, "text/plain", "Not found 1"); });
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
                {
         switch (type)
@@ -118,8 +126,10 @@ void HttpController::handlePwmOn(AsyncWebServerRequest *request)
     }
     if (channel > -1 && freq > -1 && resolution > -1 && pin > -1)
     {
-        Serial.print("Enable PWM on ");
+        Serial.print("Enable PWM on channel ");
         Serial.print(channel);
+        Serial.print(" pin=");
+        Serial.print(pin);
         Serial.print(" freq=");
         Serial.print(freq);
         Serial.print(" duty=");
@@ -174,4 +184,24 @@ void HttpController::handleReadPartitions(AsyncWebServerRequest *request)
     }
     esp_partition_iterator_release(it);
     request->send(200, "text/plain", response);
+}
+
+void HttpController::handleGetState(AsyncWebServerRequest *request) {
+    const auto& state = vmStateProvider->getState();
+    String response = "{\"dmmConnected\":\"" + String(state.dmmConnected ? "true" : "false") + "\"}";
+    request->send(200, "application/json", response);
+}
+
+void HttpController::onStateChanged(const State& state) const {
+    String wsData = "{\"dmmConnected\":\"" + String(state.dmmConnected ? "true" : "false");
+    if (state.dmmResult.isValid()) {
+        // Serial.printf("DMM Reading: V=%.6f, I=%.6f\n", state.dmmResult.voltage, state.dmmResult.current);
+        wsData += "\",\"dmmValid\":\"true\",\"voltage\":\"" + 
+            String(state.dmmResult.voltage, 3) + 
+            "\",\"current\":\"" + String(state.dmmResult.current, 3);
+    } else {
+        wsData += "\",\"dmmValid\":\"false\"";
+    }
+    wsData += "\"}";
+    ws.textAll(wsData);
 }

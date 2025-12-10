@@ -2,8 +2,9 @@ class EspRepo {
     constructor() {
         this.wsDataCb = null;
         this.ws = new WebSocket(`ws://${window.location.host}/ws`);
-        this.ws.onopen = () => {console.log("WebSocket connected");};
+        this.ws.onopen = () => {console.log("WebSocket connected6");};
         this.ws.onmessage = (event) => {
+            // console.log("WebSocket message received:", event.data);
             if (this.wsDataCb != null) { this.wsDataCb(JSON.parse(event.data)); }
         };
         this.ws.onclose = () => console.log("WebSocket disconnected");
@@ -58,7 +59,7 @@ class VM {
         .catch(error => { console.error('Request error:', error); })
         .finally(() => { });
         this.espRepo.setWsCallback(data => {
-            this.state = this.state.copyVoltsCurrent(data.v, data.c);
+            this.state = this.state.copyVoltsCurrent(data.voltage, data.current);
             this.updateUi(this.state);
         })
     }
@@ -67,7 +68,7 @@ class VM {
         this.state = this.state.copyPwmEnabled(!this.state.pwmEnabled);
         const xhr = new XMLHttpRequest();
         if (this.state.pwmEnabled)
-            xhr.open('GET','./pwmon?channel=0&freq=5000&res=8&pin=25&duty=' + this.pwmValue,true);
+            xhr.open('GET','./pwmon?channel=0&freq=20000&res=8&pin=1&duty=' + this.pwmValue,true);
         else 
             xhr.open('GET','./pwmoff?channel=0',true);
 
