@@ -3,13 +3,17 @@
 #include <stdint.h>
 
 struct DmmResult {
-    float voltage;
-    float current;
-    uint32_t timestamp;
+    float voltage {0.0f};
+    float current {0.0f};
+    uint32_t timestamp {0};
+
+    bool isValid() const {
+        return timestamp != 0;
+    }
 };
 
 class Dmm {
     public:
         virtual bool connect() = 0;
-        virtual void read(DmmResult &result, uint8_t channel) = 0;
+        virtual const DmmResult read(uint8_t channel) = 0;
 };

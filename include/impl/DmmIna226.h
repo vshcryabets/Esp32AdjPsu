@@ -10,5 +10,5 @@ private:
 public:
     DmmIna226(uint16_t address);
     bool connect() override;
-    void read(DmmResult &result, uint8_t channel) override;
+    const DmmResult read(uint8_t channel) override;
 };

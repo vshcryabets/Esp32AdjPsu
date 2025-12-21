@@ -10,17 +10,13 @@ bool DmmIna226::connect() {
     }
     dmmModule.setMaxCurrentShunt(0.785f, 0.1016);
     auto mode = dmmModule.getMode();
-    // Serial.print("Mode = ");
-    // Serial.println(mode);
     return true;
 }
 
-void DmmIna226::read(DmmResult &result, uint8_t channel) {
+const DmmResult DmmIna226::read(uint8_t channel) {
+    DmmResult result;
     result.voltage = dmmModule.getBusVoltage();
     result.current = dmmModule.getCurrent_mA()/1000.0f;
     result.timestamp = millis();
-    // Serial.print("Voltage = ");
-    // Serial.println(result->voltage);
-    // Serial.print("Current = ");
-    // Serial.println(result->current);
+    return result;
 }
