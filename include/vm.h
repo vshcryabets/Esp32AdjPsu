@@ -21,20 +21,20 @@ public:
     uint16_t configuredVoltage {0};
     uint16_t configuredCurrent {0};
     bool dmmConnected {false};
-    uint32_t dmmNextReadTime;
+    uint32_t dmmNextReadTime {0};
     DmmResult dmmResult;
 };
 
 
 class VmStateReceiver {
 public:
-    virtual void onStateChanged(const State& state) const = 0;
+    virtual void onStateChanged(const State& state) = 0;
 };
 
 class VmStateProvider {
 public:
     virtual const State& getState() = 0;
-    virtual void subscribe(const VmStateReceiver* receiver) = 0;
+    virtual bool subscribe(VmStateReceiver* receiver) = 0;
     virtual void unsubscribe(const VmStateReceiver* receiver) = 0;
 };
 
@@ -42,10 +42,10 @@ class VM: public PwmControler, public VmStateProvider {
 private:
     Dmm *dmmSource;
     PwmControler *pwm;
+    VmStateReceiver* stateReceivers[MAX_RECEIVERS] = {nullptr, nullptr, nullptr, nullptr};
 public:
     NeuralNetwork neural;
     State state;
-    const VmStateReceiver* stateReceivers[MAX_RECEIVERS] = {nullptr, nullptr, nullptr, nullptr};
 public:
     VM() = default;
     void init(Dmm *dmmSource, PwmControler *pwm);
@@ -60,7 +60,7 @@ public:
     const State& getState() override {
         return state;
     }
-    void subscribe(const VmStateReceiver* receiver) override;
+    bool subscribe(VmStateReceiver* receiver) override;
     void unsubscribe(const VmStateReceiver* receiver) override;
 private:
     void notifyStateChanged();

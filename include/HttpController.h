@@ -4,13 +4,19 @@
 
 class HttpController: public VmStateReceiver {
 private:
-    mutable AsyncWebServer server; //(80);
-    mutable AsyncWebSocket ws; //("/ws");
+    AsyncWebServer server; //(80);
+    AsyncWebSocket ws; //("/ws");
     PwmControler *pwm;
     VmStateProvider *vmStateProvider;
 public:
     HttpController(PwmControler *pwm, VmStateProvider *vmStateProvider);
-    void begin();
+    /**
+     * @brief Start the HTTP server and subscribe to VM state updates
+     */
+    bool begin();
+    /**
+     * @brief Stop the HTTP server and unsubscribe from VM state updates
+     */
     void end();
 private:
     void handlePwmOn(AsyncWebServerRequest *request);
@@ -23,5 +29,5 @@ private:
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onWebSocketMessage(void *arg, uint8_t *data, size_t len);
-    void onStateChanged(const State& state) const override;
+    void onStateChanged(const State& state) override;
 };

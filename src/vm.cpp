@@ -7,8 +7,6 @@ void VM::init(Dmm *dmmSource, PwmControler *pwm)
 {
     this->dmmSource = dmmSource;
     this->pwm = pwm;
-    state.dmmNextReadTime = 0;
-    state.dmmResult.timestamp = 0;
     memset(&neural, 0, sizeof(neural));
     neuralLoadModel(&neural);
     notifyStateChanged();
@@ -61,13 +59,22 @@ void VM::onCalibration()
     notifyStateChanged();
 }
 
-void VM::subscribe(const VmStateReceiver* receiver) {
+bool VM::subscribe(VmStateReceiver* receiver) {
+    for (size_t i = 0; i < MAX_RECEIVERS; i++) {
+        if (stateReceivers[i] == receiver) {
+            // Receiver already subscribed; avoid duplicate entries.
+            return false;
+        }
+    }
+    bool added = false;
     for (size_t i = 0; i < MAX_RECEIVERS; i++) {
         if (stateReceivers[i] == nullptr) {
             stateReceivers[i] = receiver;
+            added = true;
             break;
         }
     }
+    return added;
 }
 
 void VM::unsubscribe(const VmStateReceiver* receiver) {

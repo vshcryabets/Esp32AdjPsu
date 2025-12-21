@@ -2,7 +2,7 @@ class EspRepo {
     constructor() {
         this.wsDataCb = null;
         this.ws = new WebSocket(`ws://${window.location.host}/ws`);
-        this.ws.onopen = () => {console.log("WebSocket connected6");};
+        this.ws.onopen = () => {console.log("WebSocket connected");};
         this.ws.onmessage = (event) => {
             // console.log("WebSocket message received:", event.data);
             if (this.wsDataCb != null) { this.wsDataCb(JSON.parse(event.data)); }

@@ -13,9 +13,12 @@ void HttpController::end()
     server.end();
 }
 
-void HttpController::begin()
+bool HttpController::begin()
 {
-    vmStateProvider->subscribe(this);
+    if (!vmStateProvider->subscribe(this)) {
+        Serial.println("Failed to subscribe to VM state updates");
+        return false;
+    }
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) { 
                     request->send(SPIFFS, "/index.html", "text/html"); 
             }
@@ -47,6 +50,7 @@ void HttpController::begin()
         } });
     server.addHandler(&ws);
     server.begin();
+    return true;
 }
 
 void HttpController::handlePwmOff(AsyncWebServerRequest *request)
@@ -192,16 +196,16 @@ void HttpController::handleGetState(AsyncWebServerRequest *request) {
     request->send(200, "application/json", response);
 }
 
-void HttpController::onStateChanged(const State& state) const {
-    String wsData = "{\"dmmConnected\":\"" + String(state.dmmConnected ? "true" : "false");
+void HttpController::onStateChanged(const State& state) {
+    String wsData = "{\"dmmConnected\":" + String(state.dmmConnected ? "true" : "false");
     if (state.dmmResult.isValid()) {
         // Serial.printf("DMM Reading: V=%.6f, I=%.6f\n", state.dmmResult.voltage, state.dmmResult.current);
-        wsData += "\",\"dmmValid\":\"true\",\"voltage\":\"" + 
+        wsData += ",\"dmmValid\":true,\"voltage\":" + 
             String(state.dmmResult.voltage, 3) + 
-            "\",\"current\":\"" + String(state.dmmResult.current, 3);
+            ",\"current\":" + String(state.dmmResult.current, 3);
     } else {
-        wsData += "\",\"dmmValid\":\"false\"";
+        wsData += ",\"dmmValid\":false";
     }
-    wsData += "\"}";
+    wsData += "}";
     ws.textAll(wsData);
 }
