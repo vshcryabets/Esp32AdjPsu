@@ -46,7 +46,7 @@ class State{
     copyVoltsCurrent(volts, current) { return new State(this.pwmValue, this.pwmEnabled, volts, current); }
 }
 
-class VM {
+class ViewModel {
     constructor(espRepo, updateUi) {
         this.state = new State(255, false);
         this.espRepo = espRepo;
@@ -68,9 +68,10 @@ class VM {
         this.state = this.state.copyPwmEnabled(!this.state.pwmEnabled);
         const xhr = new XMLHttpRequest();
         if (this.state.pwmEnabled)
-            xhr.open('GET','./pwmon?channel=0&freq=20000&res=8&pin=1&duty=' + this.pwmValue,true);
+            xhr.open('GET','./pwmon?channel=0&freq=20000&res=8&pin=1&duty=' + 
+                this.state.pwmValue, true);
         else 
-            xhr.open('GET','./pwmoff?channel=0',true);
+            xhr.open('GET','./pwmoff?channel=0', true);
 
         xhr.onreadystatechange = () => {
             if (xhr.readyState===4) {
