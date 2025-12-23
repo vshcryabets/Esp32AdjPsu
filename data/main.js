@@ -87,12 +87,33 @@ class ViewModel {
         xhr.send();
     }
 
-    onSetPwm(value) {
+    onSetPwm(value, final) {
         if (value < 0) value = 0;
         if (value > 255) value = 255;
-        if (value == this.state.pwmValue) return;
+        if (value == this.state.pwmValue && !final) return;
         this.state = this.state.copyPwmValue(value);
-        if (this.state.pwmEnabled) this.espRepo.sendPwmValue(0, this.state.pwmValue);
+        const channel = 0;
+        
+        if (this.state.pwmEnabled) {
+            if (final) {
+                if (this.debounceTimer) {
+                    clearInterval(this.debounceTimer);
+                    console.log("Debounce timer cleared");
+                    this.debounceTimer = null;
+                }
+                this.espRepo.sendPwmValue(channel, this.state.pwmValue);
+            } else {
+                // Debounce non-final values
+                if (this.debounceTimer == null) {
+                    console.log("setting debounce timer");
+                    this.debounceTimer = setInterval(() => {
+                        console.log("sending debounced PWM value:", this.state.pwmValue);
+                        this.espRepo.sendPwmValue(channel, this.state.pwmValue);
+                    }, 500);
+                }
+            }
+        }
+        
         this.updateUi(this.state);
     }
 
@@ -140,30 +161,32 @@ class ViewModel {
     }
 
     onPwmValuePlusDown() {
-        this.onSetPwm(this.state.pwmValue + 1);
+        this.onSetPwm(this.state.pwmValue + 1, false);
         this.cleanPwmChangeTimers();
         this.delayTimer = setTimeout(() => {
             this.repeatInterval = setInterval(() => {
-                this.onSetPwm(this.state.pwmValue + 1);
+                this.onSetPwm(this.state.pwmValue + 1, false);
             }, 100);            
         }, 1200);
     }
 
     onPwmValuePlusUp() {
         this.cleanPwmChangeTimers();
+        this.onSetPwm(this.state.pwmValue, true);
     }
 
     onPwmValueMinusDown() {
-        this.onSetPwm(this.state.pwmValue - 1);
+        this.onSetPwm(this.state.pwmValue - 1, false);
         this.cleanPwmChangeTimers();
                 this.delayTimer = setTimeout(() => {
             this.repeatInterval = setInterval(() => {
-                this.onSetPwm(this.state.pwmValue - 1);
+                this.onSetPwm(this.state.pwmValue - 1, false);
             }, 80);            
         }, 1200);
     }
 
     onPwmValueMinusUp() {
         this.cleanPwmChangeTimers();
+        this.onSetPwm(this.state.pwmValue, true);
     }
 }

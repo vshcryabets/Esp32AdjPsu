@@ -63,7 +63,8 @@
         
         const espRepo = new EspRepo();
         const vm = new ViewModel(espRepo, updateUi);
-        slider.addEventListener("input", (event) => { vm.onSetPwm( Math.floor(event.target.value / 32));});
+        slider.addEventListener("input", (event) => { vm.onSetPwm( Math.floor(event.target.value / 32), false);});
+        slider.addEventListener("change", (event) => { vm.onSetPwm( Math.floor(event.target.value / 32), true);});
         btnPwm.addEventListener('click', (event) => { vm.onPwmClick(); });
 
         document.addEventListener('keydown', (event) => {
