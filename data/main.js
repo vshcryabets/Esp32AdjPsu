@@ -87,11 +87,12 @@ class ViewModel {
         xhr.send();
     }
 
-    onSlider(value) {
-        const newValue = value;
-        if (newValue == this.state.pwmValue) return;
-        this.state = this.state.copyPwmValue(newValue);
-        if (this.state.pwmEnabled) espRepo.sendPwmValue(0, this.state.pwmValue);
+    onSetPwm(value) {
+        if (value < 0) value = 0;
+        if (value > 255) value = 255;
+        if (value == this.state.pwmValue) return;
+        this.state = this.state.copyPwmValue(value);
+        if (this.state.pwmEnabled) this.espRepo.sendPwmValue(0, this.state.pwmValue);
         this.updateUi(this.state);
     }
 
@@ -125,5 +126,44 @@ class ViewModel {
         };
         xhr.onerror = () => console.error('Network error');
         xhr.send();
+    }
+
+    cleanPwmChangeTimers() {
+        if (this.delayTimer != null) {
+            clearInterval(this.delayTimer);
+            this.delayTimer = null;
+        }
+        if (this.repeatInterval != null) {
+            clearInterval(this.repeatInterval);
+            this.repeatInterval = null;
+        }
+    }
+
+    onPwmValuePlusDown() {
+        this.onSetPwm(this.state.pwmValue + 1);
+        this.cleanPwmChangeTimers();
+        this.delayTimer = setTimeout(() => {
+            this.repeatInterval = setInterval(() => {
+                this.onSetPwm(this.state.pwmValue + 1);
+            }, 100);            
+        }, 1200);
+    }
+
+    onPwmValuePlusUp() {
+        this.cleanPwmChangeTimers();
+    }
+
+    onPwmValueMinusDown() {
+        this.onSetPwm(this.state.pwmValue - 1);
+        this.cleanPwmChangeTimers();
+                this.delayTimer = setTimeout(() => {
+            this.repeatInterval = setInterval(() => {
+                this.onSetPwm(this.state.pwmValue - 1);
+            }, 80);            
+        }, 1200);
+    }
+
+    onPwmValueMinusUp() {
+        this.cleanPwmChangeTimers();
     }
 }
