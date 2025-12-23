@@ -48,6 +48,9 @@ class State{
 
 class ViewModel {
     constructor(espRepo, updateUi) {
+        this.repeatTimeMs = 100;
+        this.delayTimeMs = 1200;
+        this.sendPwmTimeMs = 500;
         this.state = new State(255, false);
         this.espRepo = espRepo;
         this.updateUi = updateUi;
@@ -98,18 +101,15 @@ class ViewModel {
             if (final) {
                 if (this.debounceTimer) {
                     clearInterval(this.debounceTimer);
-                    console.log("Debounce timer cleared");
                     this.debounceTimer = null;
                 }
                 this.espRepo.sendPwmValue(channel, this.state.pwmValue);
             } else {
                 // Debounce non-final values
                 if (this.debounceTimer == null) {
-                    console.log("setting debounce timer");
                     this.debounceTimer = setInterval(() => {
-                        console.log("sending debounced PWM value:", this.state.pwmValue);
                         this.espRepo.sendPwmValue(channel, this.state.pwmValue);
-                    }, 500);
+                    }, this.sendPwmTimeMs);
                 }
             }
         }
@@ -151,7 +151,7 @@ class ViewModel {
 
     cleanPwmChangeTimers() {
         if (this.delayTimer != null) {
-            clearInterval(this.delayTimer);
+            clearTimeout(this.delayTimer);
             this.delayTimer = null;
         }
         if (this.repeatInterval != null) {
@@ -166,8 +166,8 @@ class ViewModel {
         this.delayTimer = setTimeout(() => {
             this.repeatInterval = setInterval(() => {
                 this.onSetPwm(this.state.pwmValue + 1, false);
-            }, 100);            
-        }, 1200);
+            }, this.repeatTimeMs);            
+        }, this.delayTimeMs);
     }
 
     onPwmValuePlusUp() {
@@ -178,11 +178,11 @@ class ViewModel {
     onPwmValueMinusDown() {
         this.onSetPwm(this.state.pwmValue - 1, false);
         this.cleanPwmChangeTimers();
-                this.delayTimer = setTimeout(() => {
+        this.delayTimer = setTimeout(() => {
             this.repeatInterval = setInterval(() => {
                 this.onSetPwm(this.state.pwmValue - 1, false);
-            }, 80);            
-        }, 1200);
+            }, this.repeatTimeMs);            
+        }, this.delayTimeMs);
     }
 
     onPwmValueMinusUp() {
