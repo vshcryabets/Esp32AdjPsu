@@ -15,7 +15,7 @@
         </div>
         <div id="home" style="padding: 7pt;">
             <div class="sec">
-            <div class="ttl" id="btnPwm">PWM</div><span id="valuePwm">255</span>
+            <div class="ttl active" id="btnPwm">PWM</div><span id="valuePwm">255</span>
             </div>
             <input type="range" min="0" max="8192" value="8192" class="slider" id="sliderPwm">
             <div class="sec">
@@ -43,21 +43,46 @@
             });
         }
         
+        const btnPwm = document.getElementById("btnPwm");
         const slider = document.getElementById("sliderPwm");
         const output = document.getElementById("valuePwm");
         const uiValueV = document.getElementById("valueV");
         const uiValueA = document.getElementById("valueA");
 
         function updateUi(state) {
-            output.textContent = state.pwmValue + " " + state.pwmEnabled;
+            if (state.pwmEnabled) {
+                btnPwm.classList.add("red");
+            } else {
+                btnPwm.classList.remove("red");
+            }
+            output.textContent = state.pwmValue;
             slider.value = state.pwmValue * 32;
             uiValueV.textContent = state.volts;
             uiValueA.textContent = state.current;
         }
         
         const espRepo = new EspRepo();
-        const vm = new VM(espRepo, updateUi);
-        slider.addEventListener("input", (event) => { vm.onSlider( Math.floor(event.target.value / 32));});
-        document.getElementById("btnPwm").addEventListener('click', (event) => { vm.onPwmClick(); });
+        const vm = new ViewModel(espRepo, updateUi);
+        slider.addEventListener("input", (event) => { vm.onSetPwm( Math.floor(event.target.value / 32), false);});
+        slider.addEventListener("change", (event) => { vm.onSetPwm( Math.floor(event.target.value / 32), true);});
+        btnPwm.addEventListener('click', (event) => { vm.onPwmClick(); });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.repeat) return;
+            if (event.code === 'KeyI') {
+                vm.onPwmValueMinusDown();
+            } else if (event.code === 'KeyO') {
+                vm.onPwmValuePlusDown();
+            }
+        });
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'KeyP') {
+                vm.onPwmClick();
+            } else if (event.code === 'KeyI') {
+                vm.onPwmValueMinusUp();
+            } else if (event.code === 'KeyO') {
+                vm.onPwmValuePlusUp();
+            }
+        });
     </script>
 </body></html>

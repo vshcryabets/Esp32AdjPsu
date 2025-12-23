@@ -29,11 +29,21 @@ body {
     width: 32pt;
     height: 32pt;
     font-size: 12pt;
-    border: 2px solid #444;
+    border: 2px solid #888;
     border-radius: 7px;
     justify-content: center;
     align-items: center;
-    box-shadow: 2px 2px 2px 2px #AAA;
+    box-shadow: 2px 2px 2px 2px #BBB;
+    background-color: #AAA;
+}
+
+.ttl.active {
+    background-color: #fff;
+    border: 2px solid #444;
+}
+
+.ttl.active.red {
+    background-color: #f44;
 }
 
 .slider {

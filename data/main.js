@@ -46,8 +46,11 @@ class State{
     copyVoltsCurrent(volts, current) { return new State(this.pwmValue, this.pwmEnabled, volts, current); }
 }
 
-class VM {
+class ViewModel {
     constructor(espRepo, updateUi) {
+        this.repeatTimeMs = 100;
+        this.delayTimeMs = 1200;
+        this.sendPwmTimeMs = 500;
         this.state = new State(255, false);
         this.espRepo = espRepo;
         this.updateUi = updateUi;
@@ -68,9 +71,10 @@ class VM {
         this.state = this.state.copyPwmEnabled(!this.state.pwmEnabled);
         const xhr = new XMLHttpRequest();
         if (this.state.pwmEnabled)
-            xhr.open('GET','./pwmon?channel=0&freq=20000&res=8&pin=1&duty=' + this.pwmValue,true);
+            xhr.open('GET','./pwmon?channel=0&freq=20000&res=8&pin=1&duty=' + 
+                this.state.pwmValue, true);
         else 
-            xhr.open('GET','./pwmoff?channel=0',true);
+            xhr.open('GET','./pwmoff?channel=0', true);
 
         xhr.onreadystatechange = () => {
             if (xhr.readyState===4) {
@@ -86,11 +90,30 @@ class VM {
         xhr.send();
     }
 
-    onSlider(value) {
-        const newValue = value;
-        if (newValue == this.state.pwmValue) return;
-        this.state = this.state.copyPwmValue(newValue);
-        if (this.state.pwmEnabled) espRepo.sendPwmValue(0, this.state.pwmValue);
+    onSetPwm(value, final) {
+        if (value < 0) value = 0;
+        if (value > 255) value = 255;
+        if (value == this.state.pwmValue && !final) return;
+        this.state = this.state.copyPwmValue(value);
+        const channel = 0;
+        
+        if (this.state.pwmEnabled) {
+            if (final) {
+                if (this.debounceTimer) {
+                    clearInterval(this.debounceTimer);
+                    this.debounceTimer = null;
+                }
+                this.espRepo.sendPwmValue(channel, this.state.pwmValue);
+            } else {
+                // Debounce non-final values
+                if (this.debounceTimer == null) {
+                    this.debounceTimer = setInterval(() => {
+                        this.espRepo.sendPwmValue(channel, this.state.pwmValue);
+                    }, this.sendPwmTimeMs);
+                }
+            }
+        }
+        
         this.updateUi(this.state);
     }
 
@@ -124,5 +147,46 @@ class VM {
         };
         xhr.onerror = () => console.error('Network error');
         xhr.send();
+    }
+
+    cleanPwmChangeTimers() {
+        if (this.delayTimer != null) {
+            clearTimeout(this.delayTimer);
+            this.delayTimer = null;
+        }
+        if (this.repeatInterval != null) {
+            clearInterval(this.repeatInterval);
+            this.repeatInterval = null;
+        }
+    }
+
+    onPwmValuePlusDown() {
+        this.onSetPwm(this.state.pwmValue + 1, false);
+        this.cleanPwmChangeTimers();
+        this.delayTimer = setTimeout(() => {
+            this.repeatInterval = setInterval(() => {
+                this.onSetPwm(this.state.pwmValue + 1, false);
+            }, this.repeatTimeMs);            
+        }, this.delayTimeMs);
+    }
+
+    onPwmValuePlusUp() {
+        this.cleanPwmChangeTimers();
+        this.onSetPwm(this.state.pwmValue, true);
+    }
+
+    onPwmValueMinusDown() {
+        this.onSetPwm(this.state.pwmValue - 1, false);
+        this.cleanPwmChangeTimers();
+        this.delayTimer = setTimeout(() => {
+            this.repeatInterval = setInterval(() => {
+                this.onSetPwm(this.state.pwmValue - 1, false);
+            }, this.repeatTimeMs);            
+        }, this.delayTimeMs);
+    }
+
+    onPwmValueMinusUp() {
+        this.cleanPwmChangeTimers();
+        this.onSetPwm(this.state.pwmValue, true);
     }
 }
